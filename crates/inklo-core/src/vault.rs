@@ -6,10 +6,14 @@ use std::time::UNIX_EPOCH;
 
 use serde::{Deserialize, Serialize};
 
-use crate::io::{decode, read_json, write_atomic, write_json, MAX_TEXT_BYTES};
+use crate::io::{
+    decode, decode_text, encode_text, read_json, write_atomic, write_json, MAX_TEXT_BYTES,
+};
 use crate::{Error, Format, Note, NoteMeta, Result, SearchHit};
 
 const META_DIR: &str = ".inklo";
+/// The metadata folder's name before the app was renamed from Keyslate to Inklo.
+const OLD_META_DIR: &str = ".keyslate";
 const INDEX_FILE: &str = "index.json";
 const MAX_TITLE_CHARS: usize = 120;
 const MAX_TAG_CHARS: usize = 32;
@@ -17,6 +21,12 @@ const MAX_TAGS: usize = 20;
 const MAX_HITS_PER_NOTE: usize = 5;
 const MAX_HITS: usize = 200;
 const MAX_SNIPPET_CHARS: usize = 160;
+
+/// The frontend recognises this message (src/lib/store/note-actions.ts); keep the two in step.
+pub const CHANGED_ON_DISK: &str =
+    "This note changed on disk after Inklo last read it, so it was not overwritten.";
+const NOT_TEXT: &str =
+    "This note is not UTF-8 or UTF-16 text, so Inklo opened it read-only and will not overwrite it.";
 
 const WELCOME: &str = "# Welcome to Inklo\n\n\
 Every note is a plain `.md` or `.txt` file in this folder. Nothing leaves your device.\n\n\
@@ -172,7 +182,8 @@ impl Area {
         if path.parent() != Some(self.dir.as_path()) {
             return Err(Error(format!("Invalid note id \"{id}\"")));
         }
-        if !path.is_file() {
+        // Not followed through a link, the same as `ids` lists only real files.
+        if !fs::symlink_metadata(&path).is_ok_and(|m| m.is_file()) {
             return Err(not_found(id));
         }
         Ok(path)
@@ -283,10 +294,29 @@ impl Vault {
                 root.display()
             ))
         })?;
+        // Keyslate, the app's old name, kept pins and tags in `.keyslate`: carry it over once.
+        let old_meta = root.join(OLD_META_DIR);
+        if old_meta.is_dir() && !root.join(META_DIR).exists() {
+            // Best effort: without it the pins and tags stay in .keyslate, and the notes still open.
+            let _ = fs::rename(&old_meta, root.join(META_DIR));
+        }
         if fresh {
             write_atomic(&root.join("Welcome.md"), WELCOME.as_bytes())?;
         }
         Ok(Self { root })
+    }
+
+    /// Opens a vault folder that must already exist. A configured vault that went
+    /// missing (a deleted folder, an unplugged drive) is reported, never recreated empty.
+    pub fn open_existing(root: impl Into<PathBuf>) -> Result<Self> {
+        let root = root.into();
+        if !root.is_dir() {
+            return Err(Error(format!(
+                "The vault folder \"{}\" is missing. Reconnect its drive, or choose another folder in Settings.",
+                root.display()
+            )));
+        }
+        Self::open(root)
     }
 
     pub fn root(&self) -> &Path {
@@ -318,9 +348,27 @@ impl Vault {
 
     pub fn read_note(&self, id: &str) -> Result<Note> {
         let area = self.active();
-        let content = decode(&fs::read(area.path(id)?)?);
+        let path = area.path(id)?;
+        // Stat before reading, so an outside write in between never pairs old text with a new mtime.
         let meta = area.meta(id, &area.load().unwrap_or_default())?;
-        Ok(Note { meta, content })
+        if meta.size > MAX_TEXT_BYTES {
+            return Err(Error(format!(
+                "\"{id}\" is larger than {} MiB, too large to open in Inklo",
+                MAX_TEXT_BYTES / (1024 * 1024)
+            )));
+        }
+        let (content, encoding) = decode_text(&fs::read(&path)?);
+        // The editor works in LF; write_note puts CRLF back for a file that used it.
+        let content = content.replace(
+            "
+", "
+",
+        );
+        Ok(Note {
+            meta,
+            content,
+            read_only: encoding.is_none(),
+        })
     }
 
     pub fn create_note(&self, title: &str, format: Format, content: &str) -> Result<NoteMeta> {
@@ -334,6 +382,12 @@ impl Vault {
         bytes: &[u8],
         tags: Vec<String>,
     ) -> Result<NoteMeta> {
+        if bytes.len() as u64 > MAX_TEXT_BYTES {
+            return Err(Error(format!(
+                "\"{title}\" would be larger than {} MiB, too large for Inklo to open",
+                MAX_TEXT_BYTES / (1024 * 1024)
+            )));
+        }
         let area = self.active();
         let title = area.unique_title(&sanitize_title(title));
         let id = format!("{title}.{}", format.ext());
@@ -358,10 +412,41 @@ impl Vault {
     }
 
     /// Fails if the note is gone rather than recreating it, so a late autosave
-    /// cannot resurrect a note that was just trashed.
-    pub fn write_note(&self, id: &str, content: &str) -> Result<NoteMeta> {
+    /// cannot resurrect a note that was just trashed. With `expected_modified` (the
+    /// `modified` of the last read or write), also fails if the file changed on disk
+    /// since, so an edit made in another program is never overwritten. The file keeps
+    /// its encoding (UTF-8 with or without a byte-order mark, or UTF-16) and its CRLF
+    /// line endings; a file that is neither is never written.
+    pub fn write_note(
+        &self,
+        id: &str,
+        content: &str,
+        expected_modified: Option<u64>,
+    ) -> Result<NoteMeta> {
         let area = self.active();
-        write_atomic(&area.path(id)?, content.as_bytes())?;
+        let path = area.path(id)?;
+        if let Some(expected) = expected_modified {
+            if area.meta(id, &Index::default())?.modified != expected {
+                return Err(Error(CHANGED_ON_DISK.into()));
+            }
+        }
+        let (old, encoding) = decode_text(&fs::read(&path)?);
+        let Some(encoding) = encoding else {
+            return Err(Error(NOT_TEXT.into()));
+        };
+        // The editor works in LF; a file that used CRLF keeps CRLF.
+        let content = if old.contains("\r\n") && !content.contains('\r') {
+            content.replace('\n', "\r\n")
+        } else {
+            content.to_string()
+        };
+        if content.len() as u64 > MAX_TEXT_BYTES {
+            return Err(Error(format!(
+                "\"{id}\" would be larger than {} MiB, too large for Inklo to open",
+                MAX_TEXT_BYTES / (1024 * 1024)
+            )));
+        }
+        write_atomic(&path, &encode_text(&content, encoding))?;
         area.meta(id, &area.load().unwrap_or_default())
     }
 
