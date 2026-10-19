@@ -18,3 +18,5 @@ serde_json = { workspace = true }
 tauri = { version = "2.12.1", features = [] }
 tauri-plugin-dialog = "2.8.1"
 tauri-plugin-global-shortcut = "2.4.0"
+# One running instance per user: a second launch focuses the first, so two windows never write one vault.
+tauri-plugin-single-instance = "=2.5.2"

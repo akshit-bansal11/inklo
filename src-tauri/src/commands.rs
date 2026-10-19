@@ -23,7 +23,7 @@ fn err(e: impl Display) -> String {
 
 fn vault(state: &State<'_, AppState>) -> CmdResult<Vault> {
     let path = state.lock()?.vault.clone();
-    Vault::open(path).map_err(err)
+    Vault::open_existing(path).map_err(err)
 }
 
 fn path_string(path: PathBuf) -> String {
@@ -105,8 +105,11 @@ pub async fn write_note(
     state: State<'_, AppState>,
     id: String,
     content: String,
+    expected_modified: Option<u64>,
 ) -> CmdResult<NoteMeta> {
-    vault(&state)?.write_note(&id, &content).map_err(err)
+    vault(&state)?
+        .write_note(&id, &content, expected_modified)
+        .map_err(err)
 }
 
 #[tauri::command]
@@ -227,9 +230,21 @@ pub async fn export_vault(app: AppHandle, state: State<'_, AppState>) -> CmdResu
 #[tauri::command]
 pub async fn reveal_vault(state: State<'_, AppState>) -> CmdResult<()> {
     let vault = vault(&state)?;
+    // Run by full path where the OS has a fixed opener: a bare name on Windows is
+    // looked up beside the exe first, where a planted explorer.exe could sit.
+    let opener: PathBuf = if cfg!(windows) {
+        std::env::var_os("WINDIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
+            .join("explorer.exe")
+    } else if cfg!(target_os = "macos") {
+        PathBuf::from("/usr/bin/open")
+    } else {
+        PathBuf::from("xdg-open")
+    };
     // The path is a separate argv entry, never part of a shell string. Explorer
     // exits non-zero even on success, so only a failure to launch is an error.
-    Command::new("explorer.exe")
+    Command::new(opener)
         .arg(vault.root())
         .status()
         .map(|_| ())
@@ -253,8 +268,14 @@ pub async fn set_global_shortcut(app: AppHandle, accelerator: Option<String>) ->
     let Some(accelerator) = accelerator.filter(|a| !a.trim().is_empty()) else {
         return Ok(());
     };
+    // On Wayland an app cannot grab keys system-wide; say so instead of failing quietly.
+    if cfg!(target_os = "linux") && std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        return Err("Global shortcuts do not work on Wayland. Use your desktop's own keyboard settings to start Inklo.".into());
+    }
+    // Keys are stored as "Ctrl+…" on every system; on a Mac that Ctrl is Cmd.
+    let accelerator = accelerator.trim().replacen("Ctrl+", "CommandOrControl+", 1);
     shortcuts
-        .on_shortcut(accelerator.trim(), |app, _shortcut, event| {
+        .on_shortcut(accelerator.as_str(), |app, _shortcut, event| {
             if event.state != ShortcutState::Pressed {
                 return;
             }
