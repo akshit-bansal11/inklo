@@ -52,7 +52,8 @@ export const settingsSchema = z.object({
   sort: z.enum(["modified", "title"]).catch("modified"),
   /** Command id to key combo. An empty string means "deliberately unbound". */
   keybindings: z.record(z.string(), z.string()).catch({}),
-  globalShortcut: z.string().nullable().catch("Ctrl+Alt+N"),
+  /** Off until chosen: a system-wide combo takes the key from every other app, and on AltGr keyboards Ctrl+Alt+letter types characters. */
+  globalShortcut: z.string().nullable().catch(null),
 });
 
 export type ThemeColors = z.infer<typeof themeColorsSchema>;

@@ -51,6 +51,7 @@ function goToLine(view: EditorView, line: number) {
 function bindToStore(view: EditorView): () => void {
   let loadedId: string | null = null;
   let loadedFormat: NoteFormat | null = null;
+  let loadedReadOnly = false;
   /** The text the editor and the store last agreed on. */
   let agreed = "";
 
@@ -68,7 +69,8 @@ function bindToStore(view: EditorView): () => void {
 
   const sync = (state: AppState, previous: AppState) => {
     const format = activeFormat(state);
-    const load = state.activeId !== loadedId || format !== loadedFormat;
+    const load =
+      state.activeId !== loadedId || format !== loadedFormat || state.readOnly !== loadedReadOnly;
     if (load) {
       // A rename or a format change gives the same text a new id; the caret stays where it was.
       const sameText = loadedId !== null && view.state.doc.toString() === state.content;
@@ -78,11 +80,13 @@ function bindToStore(view: EditorView): () => void {
           format,
           settings: state.settings,
           selection: sameText ? view.state.selection : undefined,
+          readOnly: state.readOnly,
           extra: listener,
         }),
       );
       loadedId = state.activeId;
       loadedFormat = format;
+      loadedReadOnly = state.readOnly;
       agreed = state.content;
     } else if (state.content !== agreed) {
       agreed = state.content;

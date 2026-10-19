@@ -9,6 +9,7 @@ const SETTINGS_SAVE_MS = 300;
 let toastCount = 0;
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 let settingsTimer: ReturnType<typeof setTimeout> | undefined;
+let settingsPending = false;
 
 /** Errors stay until dismissed or replaced; a missed error message is a lost one. */
 export function notify(message: string, tone: Toast["tone"] = "info") {
@@ -66,13 +67,27 @@ export function setFilterText(filterText: string) {
   useAppStore.setState({ filterText });
 }
 
+/** Writes any settings change still waiting on the debounce, now. Used before the window closes. */
+export async function flushSettings(): Promise<void> {
+  if (!settingsPending) return;
+  clearTimeout(settingsTimer);
+  settingsPending = false;
+  try {
+    await getBackend().saveSettings(useAppStore.getState().settings);
+  } catch (error) {
+    reportError(error);
+  }
+}
+
 /** Applies at once, validates, and writes settings.json shortly after. */
 export function updateSettings(patch: Partial<Settings>) {
   const previous = useAppStore.getState().settings;
   const settings = parseSettings({ ...previous, ...patch });
   useAppStore.setState({ settings });
   clearTimeout(settingsTimer);
+  settingsPending = true;
   settingsTimer = setTimeout(() => {
+    settingsPending = false;
     getBackend().saveSettings(useAppStore.getState().settings).catch(reportError);
   }, SETTINGS_SAVE_MS);
   if ("globalShortcut" in patch) {

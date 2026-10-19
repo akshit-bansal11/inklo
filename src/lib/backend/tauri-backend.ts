@@ -48,7 +48,8 @@ export const tauriBackend: Backend = {
   readNote: (id) => call(noteSchema, "read_note", { id }),
   createNote: (title, format, content) =>
     call(noteMetaSchema, "create_note", { title, format, content }),
-  writeNote: (id, content) => call(noteMetaSchema, "write_note", { id, content }),
+  writeNote: (id, content, expectedModified) =>
+    call(noteMetaSchema, "write_note", { id, content, expectedModified }),
   renameNote: (id, title) => call(noteMetaSchema, "rename_note", { id, title }),
   setFormat: (id, format) => call(noteMetaSchema, "set_format", { id, format }),
   duplicateNote: (id) => call(noteMetaSchema, "duplicate_note", { id }),
@@ -78,10 +79,26 @@ export const tauriBackend: Backend = {
           .catch((error: unknown) => console.error(error));
       }),
     ),
-  onBeforeClose: (listener) =>
-    subscribe(
-      getCurrentWindow().onCloseRequested(async () => {
-        await listener();
+  onBeforeClose: (listener) => {
+    const window = getCurrentWindow();
+    const stopClose = subscribe(
+      window.onCloseRequested(async (event) => {
+        if (!(await listener())) event.preventDefault();
       }),
-    ),
+    );
+    // Quitting from the menu or with Cmd+Q skips the close request: Rust waits for this
+    // save, then the destroyed window lets the quit go through.
+    const stopQuit = subscribe(
+      listen("save-before-quit", () => {
+        // A refused close (a failed save) keeps the window; quitting again goes through.
+        void listener()
+          .then((ok) => (ok ? window.destroy() : undefined))
+          .catch((error: unknown) => console.error(error));
+      }),
+    );
+    return () => {
+      stopClose();
+      stopQuit();
+    };
+  },
 };

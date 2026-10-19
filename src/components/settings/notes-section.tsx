@@ -7,6 +7,7 @@ import {
 } from "@/components/settings/settings-constants";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { useIsNative } from "@/hooks/settings/use-is-native";
+import { FILE_MANAGER } from "@/lib/platform";
 import { useAppStore } from "@/lib/store/app-store";
 import { updateSettings } from "@/lib/store/ui-actions";
 
@@ -48,7 +49,7 @@ export function NotesSection() {
             Change folder
           </CommandButton>
           <CommandButton commandId="vault.reveal" disabled={!native}>
-            Open in Explorer
+            {`Open in ${FILE_MANAGER}`}
           </CommandButton>
         </div>
       </div>

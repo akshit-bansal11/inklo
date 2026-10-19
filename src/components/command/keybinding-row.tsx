@@ -1,7 +1,7 @@
 import type { KeyboardEvent } from "react";
 import { KEY_CAPTURE_ATTRIBUTE } from "@/hooks/use-global-keys";
 import { cn } from "@/lib/cn";
-import { keyFromEvent } from "@/lib/commands/keys";
+import { keyFromEvent, keyLabel } from "@/lib/commands/keys";
 
 interface KeybindingRowProps {
   title: string;
@@ -68,7 +68,7 @@ export function KeybindingRow({
         <span className="text-muted text-xs"> {detail}</span>
       </span>
       {currentKey ? (
-        <kbd className="ks-kbd">{currentKey}</kbd>
+        <kbd className="ks-kbd">{keyLabel(currentKey)}</kbd>
       ) : (
         <span className="text-muted text-xs">No shortcut</span>
       )}

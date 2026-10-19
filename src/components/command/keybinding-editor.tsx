@@ -13,7 +13,8 @@ import {
   type KeybindingEdit,
   releaseKey,
 } from "@/lib/command-ui/keybindings";
-import { keyFor } from "@/lib/commands/registry";
+import { keyLabel } from "@/lib/commands/keys";
+import { defaultKeyOf, keyFor } from "@/lib/commands/registry";
 import { useAppStore } from "@/lib/store/app-store";
 import { askConfirm, updateSettings } from "@/lib/store/ui-actions";
 
@@ -51,7 +52,7 @@ export function KeybindingEditor({ className }: { className?: string }) {
     setAnnouncement(
       key === ""
         ? `Removed the shortcut for ${titleOf(target)}.`
-        : `Bound ${key} to ${titleOf(target)}.`,
+        : `Bound ${keyLabel(key)} to ${titleOf(target)}.`,
     );
   }
 
@@ -64,7 +65,7 @@ export function KeybindingEditor({ className }: { className?: string }) {
       setAnnouncement(`Not bound. ${verdict.reason}`);
     } else {
       const holders = verdict.others.map((command) => command.title).join(", ");
-      const message = `${key} is already used by ${holders}.`;
+      const message = `${keyLabel(key)} is already used by ${holders}.`;
       setEdit({ target, conflict: { key, message } });
       setAnnouncement(`${message} Choose Replace or Cancel.`);
     }
@@ -132,7 +133,7 @@ export function KeybindingEditor({ className }: { className?: string }) {
           {showGlobal ? (
             <KeybindingRow
               title={GLOBAL_SHORTCUT_TITLE}
-              detail="Anywhere in Windows"
+              detail="From any app"
               currentKey={globalShortcut ?? undefined}
               overridden={globalShortcut !== DEFAULT_GLOBAL_SHORTCUT}
               {...rowProps(GLOBAL_SHORTCUT_ID, DEFAULT_GLOBAL_SHORTCUT ?? "")}
@@ -145,7 +146,7 @@ export function KeybindingEditor({ className }: { className?: string }) {
               detail={command.group}
               currentKey={keyFor(command, keybindings)}
               overridden={command.id in keybindings}
-              {...rowProps(command.id, command.defaultKey ?? "")}
+              {...rowProps(command.id, defaultKeyOf(command) ?? "")}
             />
           ))}
         </ul>

@@ -1,5 +1,6 @@
 import { Command } from "cmdk";
 import { runCommandFromPicker } from "@/lib/command-ui/picker-actions";
+import { keyLabel } from "@/lib/commands/keys";
 import { type Command as AppCommand, keyFor } from "@/lib/commands/registry";
 import { useAppStore } from "@/lib/store/app-store";
 
@@ -19,7 +20,7 @@ export function CommandRow({ command, value, detail }: CommandRowProps) {
     <Command.Item value={value} onSelect={() => runCommandFromPicker(command.id)}>
       <span className="min-w-0 flex-1 truncate">{command.title}</span>
       {detail ? <span className="shrink-0 text-muted text-xs">{detail}</span> : null}
-      {key ? <kbd className="ks-kbd shrink-0">{key}</kbd> : null}
+      {key ? <kbd className="ks-kbd shrink-0">{keyLabel(key)}</kbd> : null}
     </Command.Item>
   );
 }

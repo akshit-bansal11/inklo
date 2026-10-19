@@ -40,7 +40,11 @@ function visibleEditor(): EditorView | null {
 /** The editor to change, or a message saying why there is none. */
 function editableEditor(): EditorView | null {
   const view = visibleEditor();
-  if (view) return view;
+  if (view) {
+    if (!useAppStore.getState().readOnly) return view;
+    notify("This note is open read-only.");
+    return null;
+  }
   notify(
     useAppStore.getState().activeId === null
       ? NO_NOTE
@@ -145,6 +149,7 @@ export function createEditorCommands(handles: EditorPaneHandles): Command[] {
       title: "Inline code",
       group: "Edit",
       defaultKey: "Ctrl+`",
+      macKey: "Ctrl+Shift+K",
       run: wrap("`"),
     },
     {
@@ -159,6 +164,7 @@ export function createEditorCommands(handles: EditorPaneHandles): Command[] {
       title: "Cycle heading level",
       group: "Edit",
       defaultKey: "Ctrl+H",
+      macKey: "Ctrl+Shift+H",
       run: format(cycleHeading),
     },
     {
@@ -201,6 +207,7 @@ export function createEditorCommands(handles: EditorPaneHandles): Command[] {
       title: "Code block",
       group: "Edit",
       defaultKey: "Ctrl+Shift+`",
+      macKey: "Ctrl+Alt+K",
       run: format(toggleCodeBlock),
     },
     {
@@ -208,6 +215,7 @@ export function createEditorCommands(handles: EditorPaneHandles): Command[] {
       title: "Insert today's date",
       group: "Edit",
       defaultKey: "Alt+D",
+      macKey: "Ctrl+Shift+;",
       run: () => {
         const view = editableEditor();
         if (view) insert(view, formatDate(new Date()));
@@ -215,7 +223,7 @@ export function createEditorCommands(handles: EditorPaneHandles): Command[] {
     },
     {
       id: "editor.pastePlain",
-      title: "Paste as plain text next",
+      title: "Make the next paste plain text",
       group: "Edit",
       defaultKey: "Ctrl+Shift+V",
       run: () => {

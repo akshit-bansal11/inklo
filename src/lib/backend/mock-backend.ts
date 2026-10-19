@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Backend } from "@/lib/backend/backend";
+import { type Backend, CHANGED_ON_DISK } from "@/lib/backend/backend";
 import {
   type Note,
   type NoteFormat,
@@ -27,6 +27,7 @@ const WELCOME: Note = {
   tags: [],
   modified: 0,
   size: 0,
+  readOnly: false,
   content:
     "# Welcome to Inklo\n\nPress **Ctrl+K** for every command, **Ctrl+N** for a new note.\n",
 };
@@ -108,6 +109,7 @@ export function createMockBackend(): Backend {
       tags,
       modified: 0,
       size: 0,
+      readOnly: false,
       content,
     };
     state.notes.push(note);
@@ -134,10 +136,15 @@ export function createMockBackend(): Backend {
 
     listNotes: async () => state.notes.map(toMeta),
     listTrash: async () => state.trash.map(toMeta),
-    readNote: async (id) => ({ ...find(state.notes, id) }),
+    readNote: async (id) => ({ ...find(state.notes, id), readOnly: false }),
     createNote: async (title, format, content) => add(title, format, content),
-    writeNote: async (id, content) => {
+    writeNote: async (id, content, expectedModified) => {
       const note = find(state.notes, id);
+      if (expectedModified !== null && expectedModified !== note.modified) {
+        throw new Error(
+          `This note ${CHANGED_ON_DISK} after Inklo last read it, so it was not overwritten.`,
+        );
+      }
       note.content = content;
       return stamp(note);
     },

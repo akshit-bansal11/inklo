@@ -7,6 +7,9 @@ export type Unsubscribe = () => void;
  * Rust; the mock keeps notes in memory so the UI runs in a plain browser and
  * under Playwright. Every method rejects with a human-readable message.
  */
+/** Part of the message Rust's write_note fails with when the file changed (crates/inklo-core/src/vault.rs CHANGED_ON_DISK); keep in step. */
+export const CHANGED_ON_DISK = "changed on disk";
+
 export interface Backend {
   /** False in the browser mock, where there is no real folder or OS dialog. */
   readonly native: boolean;
@@ -22,7 +25,8 @@ export interface Backend {
   listTrash(): Promise<NoteMeta[]>;
   readNote(id: string): Promise<Note>;
   createNote(title: string, format: NoteFormat, content: string): Promise<NoteMeta>;
-  writeNote(id: string, content: string): Promise<NoteMeta>;
+  /** Rejects when the file changed on disk after `expectedModified` (see CHANGED_ON_DISK). */
+  writeNote(id: string, content: string, expectedModified: number | null): Promise<NoteMeta>;
   renameNote(id: string, title: string): Promise<NoteMeta>;
   setFormat(id: string, format: NoteFormat): Promise<NoteMeta>;
   duplicateNote(id: string): Promise<NoteMeta>;
@@ -48,6 +52,6 @@ export interface Backend {
   onVaultChanged(listener: () => void): Unsubscribe;
   onQuickCapture(listener: () => void): Unsubscribe;
   onFilesDropped(listener: (files: TextFile[]) => void): Unsubscribe;
-  /** The listener is awaited before the window closes, so a pending save lands. */
-  onBeforeClose(listener: () => Promise<void>): Unsubscribe;
+  /** Awaited before the window closes or the app quits; resolving false keeps the window open. */
+  onBeforeClose(listener: () => Promise<boolean>): Unsubscribe;
 }

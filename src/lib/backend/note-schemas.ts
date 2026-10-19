@@ -15,7 +15,10 @@ export const noteMetaSchema = z.object({
   size: z.number(),
 });
 
-export const noteSchema = noteMetaSchema.extend({ content: z.string() });
+export const noteSchema = noteMetaSchema.extend({
+  content: z.string(),
+  readOnly: z.boolean().default(false),
+});
 
 export const searchHitSchema = z.object({
   id: z.string(),

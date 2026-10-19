@@ -1,3 +1,5 @@
+import { IS_MAC } from "@/lib/platform";
+
 export type CommandGroup = "Note" | "Edit" | "View" | "Go" | "Vault" | "Theme" | "App";
 
 export interface Command {
@@ -8,6 +10,8 @@ export interface Command {
   group: CommandGroup;
   /** Key combo in the `keys.ts` format. Omit for palette-only commands. */
   defaultKey?: string;
+  /** The Mac default when `defaultKey` collides with macOS (Cmd+H hides the app, Cmd+` switches windows, Cmd+Option+D toggles the Dock). "" leaves it unbound there. */
+  macKey?: string;
   run: () => void | Promise<void>;
 }
 
@@ -44,10 +48,22 @@ export function getCommands(): readonly Command[] {
   return snapshot;
 }
 
+/**
+ * The default combo on this system. On a Mac an Alt-only default would need Option,
+ * which types characters, so it gains Cmd (Ctrl in the stored form) unless the command
+ * names its own.
+ */
+export function defaultKeyOf(command: Command, mac = IS_MAC): string | undefined {
+  if (!mac) return command.defaultKey;
+  if (command.macKey !== undefined) return command.macKey === "" ? undefined : command.macKey;
+  const key = command.defaultKey;
+  return key?.startsWith("Alt+") ? `Ctrl+${key}` : key;
+}
+
 /** The combo currently bound to a command, after the user's overrides. */
 export function keyFor(command: Command, overrides: KeyOverrides): string | undefined {
   const override = overrides[command.id];
-  if (override === undefined) return command.defaultKey;
+  if (override === undefined) return defaultKeyOf(command);
   return override === "" ? undefined : override;
 }
 

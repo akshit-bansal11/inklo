@@ -1,8 +1,10 @@
+import { CHANGED_ON_DISK } from "@/lib/backend/backend";
 import { getBackend } from "@/lib/backend/get-backend";
 import type { NoteFormat, NoteMeta, TextFile } from "@/lib/backend/note-schemas";
+import { errorMessage } from "@/lib/error-message";
 import { parseSettings } from "@/lib/settings/settings-schema";
 import { useAppStore } from "@/lib/store/app-store";
-import { askConfirm, notify, reportError } from "@/lib/store/ui-actions";
+import { askConfirm, flushSettings, notify, reportError } from "@/lib/store/ui-actions";
 import { visibleNotes } from "@/lib/store/visible-notes";
 
 const AUTOSAVE_MS = 400;
@@ -23,23 +25,77 @@ export async function refreshNotes() {
   setState({ notes, trash });
 }
 
-/** Writes the editor buffer if it differs from disk. Safe to call at any time. */
-export async function flushSave() {
+async function writePending(): Promise<boolean> {
   clearTimeout(saveTimer);
-  const { activeId, content, savedContent } = getState();
-  if (activeId === null || content === savedContent) return;
+  const { activeId, content, savedContent, savedModified, readOnly } = getState();
+  if (activeId === null || readOnly || content === savedContent) return true;
   setState({ saving: true });
   try {
-    await getBackend().writeNote(activeId, content);
+    const meta = await getBackend().writeNote(activeId, content, savedModified);
     // Only what was actually written counts as saved; typing may have continued.
-    if (getState().activeId === activeId) setState({ savedContent: content });
+    if (getState().activeId === activeId) {
+      setState({ savedContent: content, savedModified: meta.modified });
+    }
     await refreshNotes();
   } catch (error) {
-    reportError(error);
-  } finally {
     setState({ saving: false });
+    if (errorMessage(error).includes(CHANGED_ON_DISK)) return keepBothVersions(activeId, content);
+    reportError(error);
+    return false;
   }
+  setState({ saving: false });
   if (getState().activeId === activeId && getState().content !== content) scheduleSave();
+  return true;
+}
+
+/**
+ * Another program changed the open note while it had unsaved typing. Neither version
+ * is thrown away: the typing becomes a new note, which opens, and the file keeps the
+ * other program's text.
+ */
+async function keepBothVersions(id: string, content: string): Promise<boolean> {
+  try {
+    const original = getState().notes.find((note) => note.id === id);
+    const title = original?.title ?? "Untitled";
+    // Typing may have continued since the write started; keep the latest text.
+    const latest = getState().activeId === id ? getState().content : content;
+    const meta = await getBackend().createNote(
+      `${title} (my edits)`,
+      original?.format ?? getState().settings.defaultFormat,
+      latest,
+    );
+    const copy = await getBackend().readNote(meta.id);
+    // Only move the user to the copy if they are still on the note that conflicted.
+    if (getState().activeId === id) {
+      setState({
+        activeId: copy.id,
+        content: copy.content,
+        savedContent: copy.content,
+        savedModified: copy.modified,
+        readOnly: copy.readOnly,
+      });
+    }
+    await refreshNotes();
+    notify(
+      `"${title}" changed in another program while you typed. Your version is kept as "${copy.title}".`,
+    );
+    return true;
+  } catch (error) {
+    reportError(error);
+    return false;
+  }
+}
+
+let saving: Promise<boolean> = Promise.resolve(true);
+
+/**
+ * Writes the editor buffer if it differs from disk. True when nothing is left unsaved.
+ * One save at a time: a second one started while a write is in flight would still expect
+ * the old modified time, and look like another program had changed the file.
+ */
+export function flushSave(): Promise<boolean> {
+  saving = saving.then(writePending, writePending);
+  return saving;
 }
 
 function scheduleSave() {
@@ -56,15 +112,27 @@ export function setContent(content: string) {
 
 function closeNote() {
   clearTimeout(saveTimer);
-  setState({ activeId: null, content: "", savedContent: "" });
+  setState({ activeId: null, content: "", savedContent: "", savedModified: null, readOnly: false });
 }
 
 export async function openNote(id: string) {
   try {
-    await flushSave();
+    if (!(await flushSave())) return;
     const note = await getBackend().readNote(id);
     const view = getState().view === "trash" ? "all" : getState().view;
-    setState({ activeId: note.id, content: note.content, savedContent: note.content, view });
+    setState({
+      activeId: note.id,
+      content: note.content,
+      savedContent: note.content,
+      savedModified: note.modified,
+      readOnly: note.readOnly,
+      view,
+    });
+    if (note.readOnly) {
+      notify(
+        `"${note.title}" is not UTF-8 or UTF-16 text, so it is open read-only. Inklo will not change it.`,
+      );
+    }
   } catch (error) {
     reportError(error);
   }
@@ -81,7 +149,7 @@ export async function openRelative(step: 1 | -1) {
 
 export async function createNote(format?: NoteFormat, title = "Untitled", content = "") {
   try {
-    await flushSave();
+    if (!(await flushSave())) return;
     const meta = await getBackend().createNote(
       title,
       format ?? getState().settings.defaultFormat,
@@ -102,12 +170,16 @@ export async function createNote(format?: NoteFormat, title = "Untitled", conten
 async function change(id: string, work: () => Promise<NoteMeta>) {
   try {
     const wasActive = getState().activeId === id;
-    if (wasActive) await flushSave();
+    if (wasActive && !(await flushSave())) return;
     const meta = await work();
     const backend = getBackend();
     const [notes, trash] = await Promise.all([backend.listNotes(), backend.listTrash()]);
     // One update, so the open note never points at an id the list lacks.
-    setState(wasActive ? { activeId: meta.id, notes, trash } : { notes, trash });
+    setState(
+      wasActive
+        ? { activeId: meta.id, savedModified: meta.modified, notes, trash }
+        : { notes, trash },
+    );
   } catch (error) {
     reportError(error);
   }
@@ -127,7 +199,7 @@ export const setNoteTags = (id: string, tags: string[]) =>
 
 export async function duplicateNote(id: string) {
   try {
-    await flushSave();
+    if (!(await flushSave())) return;
     const meta = await getBackend().duplicateNote(id);
     await refreshNotes();
     await openNote(meta.id);
@@ -142,7 +214,7 @@ export async function trashNote(id: string) {
     const notes = listed();
     const index = notes.findIndex((note) => note.id === id);
     const neighbour = notes[index + 1] ?? notes[index - 1];
-    if (wasActive) await flushSave();
+    if (wasActive && !(await flushSave())) return;
     await getBackend().trashNote(id);
     if (wasActive) closeNote();
     await refreshNotes();
@@ -203,7 +275,7 @@ export async function importNotes(files: TextFile[]) {
   let imported = 0;
   let last: NoteMeta | undefined;
   try {
-    await flushSave();
+    if (!(await flushSave())) return;
     for (const file of files) {
       const dot = file.name.lastIndexOf(".");
       const format = IMPORT_FORMATS[file.name.slice(dot + 1).toLowerCase()];
@@ -228,7 +300,7 @@ export async function changeVault() {
     const backend = getBackend();
     const path = await backend.pickFolder();
     if (path === null) return;
-    await flushSave();
+    if (!(await flushSave())) return;
     await backend.setVaultPath(path);
     closeNote();
     setState({ vaultPath: path, view: "all", tagFilter: null, filterText: "" });
@@ -257,11 +329,34 @@ async function syncFromDisk() {
     const note = await getBackend().readNote(activeId);
     const now = getState();
     if (now.activeId === activeId && now.content === now.savedContent) {
-      setState({ content: note.content, savedContent: note.content });
+      setState({
+        content: note.content,
+        savedContent: note.content,
+        savedModified: note.modified,
+        readOnly: note.readOnly,
+      });
     }
   } catch (error) {
     reportError(error);
   }
+}
+
+let closeRefused = false;
+
+/**
+ * Runs before the window closes or the app quits. A failed save keeps the window open
+ * once, so the text can be copied somewhere safe; closing again quits without it.
+ */
+async function beforeClose(): Promise<boolean> {
+  await flushSettings();
+  if (await flushSave()) return true;
+  if (closeRefused) return true;
+  closeRefused = true;
+  notify(
+    "The note could not be saved, so Inklo stayed open. Copy your text somewhere safe, then close again to quit without it.",
+    "error",
+  );
+  return false;
 }
 
 /** Loads settings and notes, then wires the backend's events. Call once. */
@@ -285,6 +380,6 @@ export async function startApp() {
   backend.onVaultChanged(() => void syncFromDisk());
   backend.onQuickCapture(() => void createNote());
   backend.onFilesDropped((files) => void importNotes(files));
-  backend.onBeforeClose(flushSave);
+  backend.onBeforeClose(beforeClose);
   window.addEventListener("blur", () => void flushSave());
 }
