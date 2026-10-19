@@ -1,0 +1,12 @@
+# The repository has no root .editorconfig, so this one is the root for the site. Biome
+# reads it (useEditorconfig), and the JavaScript ecosystem, shadcn's component sources
+# and every Next.js template indent by 2.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2

@@ -1,0 +1,24 @@
+# The deploy is built from the repository root, because site/lib/repo.ts reads
+# ../package.json at build time. Everything the build does not read is excluded so the
+# upload stays small.
+/src
+/src-tauri
+/crates
+/e2e
+/target
+/dist
+/shots
+/test-results
+/.github
+/index.html
+/vite.config.ts
+/playwright.config.ts
+/eslint.config.js
+/biome.json
+/tsconfig.json
+/Cargo.toml
+/Cargo.lock
+
+node_modules
+.next
+out

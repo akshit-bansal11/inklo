@@ -10,3 +10,9 @@ playwright-report/
 src-tauri/gen/
 .DS_Store
 shots/
+
+# Vercel CLI link (local)
+.vercel
+
+.vercel
+.env*
