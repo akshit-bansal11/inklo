@@ -215,7 +215,7 @@ export async function importNotes(files: TextFile[]) {
     if (last) await openNote(last.id);
     notify(
       imported === 0
-        ? "Nothing to import. Keyslate imports .md and .txt files."
+        ? "Nothing to import. Inklo imports .md and .txt files."
         : `Imported ${imported} ${imported === 1 ? "note" : "notes"}.`,
     );
   } catch (error) {
@@ -244,7 +244,7 @@ async function openMostRecent() {
   if (latest) await openNote(latest.id);
 }
 
-/** Something outside Keyslate touched the vault. Never clobbers unsaved typing. */
+/** Something outside Inklo touched the vault. Never clobbers unsaved typing. */
 async function syncFromDisk() {
   try {
     await refreshNotes();

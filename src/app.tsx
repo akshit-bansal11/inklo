@@ -43,7 +43,7 @@ export function App() {
         Skip to the editor
       </a>
       <header className="sr-only">
-        <h1>Keyslate</h1>
+        <h1>Inklo</h1>
       </header>
       <div className="flex min-h-0 flex-1">
         {sidebarVisible ? <Sidebar /> : null}

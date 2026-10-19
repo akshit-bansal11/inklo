@@ -40,7 +40,7 @@ export function NotesSection() {
         {native ? null : (
           <p className="text-muted text-sm">
             This is the browser preview, so notes are kept in memory and are not saved to disk. The
-            folder buttons work in the Keyslate app.
+            folder buttons work in the Inklo app.
           </p>
         )}
         <div className="flex flex-wrap gap-2">

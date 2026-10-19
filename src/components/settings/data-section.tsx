@@ -6,7 +6,7 @@ export function DataSection() {
   return (
     <SettingsSection section={SETTINGS_SECTIONS.data}>
       <p className="selectable text-sm">
-        Keyslate has no account, no sync and makes no network requests. Your notes are the files in
+        Inklo has no account, no sync and makes no network requests. Your notes are the files in
         the vault folder.
       </p>
       <div className="flex flex-wrap gap-2">

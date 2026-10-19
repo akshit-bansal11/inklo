@@ -51,7 +51,7 @@ async function importTheme() {
 
 async function exportTheme() {
   const theme = resolveTheme(settings());
-  const name = `${safeFileName(theme.name)}.keyslate-theme.json`;
+  const name = `${safeFileName(theme.name)}.inklo-theme.json`;
   const path = await getBackend().saveTextFile(name, `${JSON.stringify(theme, null, 2)}\n`);
   if (path !== null) notify(`Exported the theme to ${path}`);
 }

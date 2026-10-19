@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Keyslate",
+  "productName": "Inklo",
   "version": "0.1.0",
-  "identifier": "com.akshitbansal.keyslate",
+  "identifier": "com.akshitbansal.inklo",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Keyslate",
+        "title": "Inklo",
         "width": 1100,
         "height": 720,
         "minWidth": 640,

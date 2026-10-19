@@ -1,4 +1,4 @@
-//! Thin wrappers: resolve the vault, call `keyslate-core`, turn errors into strings.
+//! Thin wrappers: resolve the vault, call `inklo-core`, turn errors into strings.
 //!
 //! Every command is `async` so it runs off the main thread; that is what makes
 //! the blocking dialog calls safe and keeps a slow disk from freezing the UI.
@@ -7,7 +7,7 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::process::Command;
 
-use keyslate_core::{Format, Note, NoteMeta, SearchHit, TextFile, Vault};
+use inklo_core::{Format, Note, NoteMeta, SearchHit, TextFile, Vault};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::{DialogExt, FileDialogBuilder};
@@ -58,7 +58,7 @@ pub async fn set_vault_path(
     path: String,
 ) -> CmdResult<()> {
     let vault = Vault::open(path.trim()).map_err(err)?;
-    keyslate_core::set_vault_path(&settings_file(&app)?, vault.root()).map_err(err)?;
+    inklo_core::set_vault_path(&settings_file(&app)?, vault.root()).map_err(err)?;
     // A folder that cannot be watched still works as a vault; it only misses outside edits.
     let watcher = watch(&app, vault.root()).ok();
     let mut inner = state.lock()?;
@@ -191,14 +191,14 @@ pub async fn open_text_files(app: AppHandle, extensions: Vec<String>) -> CmdResu
     Ok(picked
         .into_iter()
         .filter_map(|file| file.into_path().ok())
-        .filter_map(|path| keyslate_core::read_text_file(&path))
+        .filter_map(|path| inklo_core::read_text_file(&path))
         .collect())
 }
 
 #[tauri::command]
 pub async fn read_text_paths(paths: Vec<String>) -> CmdResult<Vec<TextFile>> {
     let paths: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
-    Ok(keyslate_core::read_text_paths(&paths))
+    Ok(inklo_core::read_text_paths(&paths))
 }
 
 #[tauri::command]
@@ -211,7 +211,7 @@ pub async fn save_text_file(
         return Ok(None);
     };
     let path = picked.into_path().map_err(err)?;
-    keyslate_core::write_text(&path, &content).map_err(err)?;
+    inklo_core::write_text(&path, &content).map_err(err)?;
     Ok(Some(path_string(path)))
 }
 
@@ -238,12 +238,12 @@ pub async fn reveal_vault(state: State<'_, AppState>) -> CmdResult<()> {
 
 #[tauri::command]
 pub async fn load_settings(app: AppHandle) -> CmdResult<Value> {
-    keyslate_core::load_settings(&settings_file(&app)?).map_err(err)
+    inklo_core::load_settings(&settings_file(&app)?).map_err(err)
 }
 
 #[tauri::command]
 pub async fn save_settings(app: AppHandle, settings: Value) -> CmdResult<()> {
-    keyslate_core::save_settings(&settings_file(&app)?, settings).map_err(err)
+    inklo_core::save_settings(&settings_file(&app)?, settings).map_err(err)
 }
 
 #[tauri::command]

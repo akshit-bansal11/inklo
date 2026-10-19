@@ -1,5 +1,5 @@
 [package]
-name = "keyslate"
+name = "inklo"
 description = "A fully local, keyboard-first note-taking app"
 version.workspace = true
 edition.workspace = true
@@ -12,7 +12,7 @@ publish = false
 tauri-build = { version = "2.7.1", features = [] }
 
 [dependencies]
-keyslate-core = { path = "../crates/keyslate-core" }
+inklo-core = { path = "../crates/inklo-core" }
 notify-debouncer-mini = "0.7.0"
 serde_json = { workspace = true }
 tauri = { version = "2.12.1", features = [] }

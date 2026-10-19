@@ -1,4 +1,4 @@
-//! Vault, search and settings logic for Keyslate.
+//! Vault, search and settings logic for Inklo.
 //!
 //! Everything here takes paths as parameters and knows nothing about Tauri, so
 //! the whole data layer is testable without a window.

@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("opens the welcome note with a theme applied", async ({ page }) => {
-  await expect(page.getByRole("heading", { level: 1, name: "Keyslate" })).toBeAttached();
+  await expect(page.getByRole("heading", { level: 1, name: "Inklo" })).toBeAttached();
   await expect(noteRow(page, /Welcome/)).toBeVisible();
   await expect(statusBar(page)).toContainText("Markdown");
   expect(await themeBackground(page)).toMatch(/^#[0-9a-f]{6}$/i);
@@ -71,7 +71,7 @@ test("full-text search opens the note that matches", async ({ page }) => {
   await expect(search.getByRole("option").first()).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(search).toBeHidden();
-  await expect(editor(page)).toContainText("Welcome to Keyslate");
+  await expect(editor(page)).toContainText("Welcome to Inklo");
 });
 
 test("trashing moves the note to the trash view", async ({ page }) => {

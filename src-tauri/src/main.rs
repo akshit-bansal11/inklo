@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
-use keyslate_core::Vault;
+use inklo_core::Vault;
 use notify_debouncer_mini::notify::{self, RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use tauri::{AppHandle, Emitter, Manager};
@@ -35,7 +35,7 @@ pub fn settings_file(app: &AppHandle) -> Result<PathBuf, String> {
 
 /// Emits `vault-changed` when notes or the index change on disk.
 ///
-/// Recursive so `.keyslate/index.json` is covered even when `.keyslate` is
+/// Recursive so `.inklo/index.json` is covered even when `.inklo` is
 /// created after the watch starts; `is_vault_change` drops everything else.
 pub fn watch(app: &AppHandle, vault: &Path) -> notify::Result<Debouncer<RecommendedWatcher>> {
     let handle = app.clone();
@@ -46,7 +46,7 @@ pub fn watch(app: &AppHandle, vault: &Path) -> notify::Result<Debouncer<Recommen
             let Ok(events) = result else { return };
             if events
                 .iter()
-                .any(|event| keyslate_core::is_vault_change(&root, &event.path))
+                .any(|event| inklo_core::is_vault_change(&root, &event.path))
             {
                 let _ = handle.emit_to(MAIN_WINDOW, "vault-changed", ());
             }
@@ -58,9 +58,9 @@ pub fn watch(app: &AppHandle, vault: &Path) -> notify::Result<Debouncer<Recommen
 
 fn initial_vault(app: &AppHandle) -> Result<PathBuf, String> {
     let settings = settings_file(app)
-        .and_then(|file| keyslate_core::load_settings(&file).map_err(|e| e.to_string()))
+        .and_then(|file| inklo_core::load_settings(&file).map_err(|e| e.to_string()))
         .unwrap_or_default();
-    if let Some(path) = keyslate_core::vault_path(&settings) {
+    if let Some(path) = inklo_core::vault_path(&settings) {
         return Ok(path);
     }
     let documents = app
@@ -68,7 +68,7 @@ fn initial_vault(app: &AppHandle) -> Result<PathBuf, String> {
         .document_dir()
         .or_else(|_| app.path().home_dir())
         .map_err(|e| e.to_string())?;
-    Ok(documents.join("Keyslate"))
+    Ok(documents.join("Inklo"))
 }
 
 fn main() {
@@ -119,5 +119,5 @@ fn main() {
             commands::set_global_shortcut,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Keyslate");
+        .expect("error while running Inklo");
 }

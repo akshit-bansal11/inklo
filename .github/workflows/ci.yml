@@ -12,7 +12,7 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Everything runs on Windows: it is the only platform Keyslate ships for, and
+# Everything runs on Windows: it is the only platform Inklo ships for, and
 # the lockfile was resolved there.
 jobs:
   gate:
@@ -55,7 +55,7 @@ jobs:
       - run: cargo fmt --all --check
       # The core crate first: it has every test and compiles in seconds, so a
       # logic failure shows up before the long Tauri compile.
-      - run: cargo test -p keyslate-core --locked
+      - run: cargo test -p inklo-core --locked
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc

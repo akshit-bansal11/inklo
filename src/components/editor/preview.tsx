@@ -46,7 +46,7 @@ export function Preview({ ref, className }: PreviewProps) {
       if (!url) return;
       navigator.clipboard
         .writeText(url)
-        .then(() => notify("Link copied. Keyslate works offline and does not open links."))
+        .then(() => notify("Link copied. Inklo works offline and does not open links."))
         .catch(reportError);
     };
 

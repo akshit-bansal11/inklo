@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use keyslate_core::{
+use inklo_core::{
     is_vault_change, load_settings, normalize_tags, read_text_paths, sanitize_title, save_settings,
     set_vault_path, validate_id, vault_path, write_text, Format, Vault,
 };
@@ -58,8 +58,8 @@ fn writes_leave_no_temp_files() {
     v.create_note("A", Format::Txt, "x").unwrap();
     v.write_note("A.txt", "y").unwrap();
     v.set_pinned("A.txt", true).unwrap();
-    assert_eq!(names(dir.path()), [".keyslate", "A.txt"]);
-    assert_eq!(names(&dir.path().join(".keyslate")), ["index.json"]);
+    assert_eq!(names(dir.path()), [".inklo", "A.txt"]);
+    assert_eq!(names(&dir.path().join(".inklo")), ["index.json"]);
 }
 
 #[test]
@@ -202,7 +202,7 @@ fn pin_and_tags_persist_and_tags_are_normalised() {
     assert_eq!(normalize_tags(&many).len(), 20);
 
     let index: Value =
-        serde_json::from_slice(&fs::read(dir.path().join(".keyslate/index.json")).unwrap())
+        serde_json::from_slice(&fs::read(dir.path().join(".inklo/index.json")).unwrap())
             .unwrap();
     assert_eq!(index["version"], 1);
     assert_eq!(index["notes"]["A.md"]["pinned"], true);
@@ -298,7 +298,7 @@ fn a_corrupt_index_is_set_aside_and_loses_no_notes() {
     let (dir, v) = vault();
     v.create_note("A", Format::Md, "body").unwrap();
     v.set_pinned("A.md", true).unwrap();
-    let meta_dir = dir.path().join(".keyslate");
+    let meta_dir = dir.path().join(".inklo");
     fs::write(meta_dir.join("index.json"), "{ not json").unwrap();
 
     let notes = v.list_notes();
@@ -322,7 +322,7 @@ fn index_entries_for_missing_files_are_pruned_on_write() {
     v.set_pinned("B.md", true).unwrap();
     fs::remove_file(dir.path().join("A.md")).unwrap();
     v.set_tags("B.md", &tags(&["t"])).unwrap();
-    let index = fs::read_to_string(dir.path().join(".keyslate/index.json")).unwrap();
+    let index = fs::read_to_string(dir.path().join(".inklo/index.json")).unwrap();
     assert!(!index.contains("A.md"));
     // A new note reusing the name starts clean.
     assert!(!v.create_note("A", Format::Md, "").unwrap().pinned);
@@ -464,12 +464,12 @@ fn only_root_notes_and_the_active_index_count_as_vault_changes() {
     for (path, expected) in [
         ("/vault/Ideas.md", true),
         ("/vault/Ideas.TXT", true),
-        ("/vault/.keyslate/index.json", true),
+        ("/vault/.inklo/index.json", true),
         ("/vault/.Ideas.md.1-0.tmp", false),
         ("/vault/photo.png", false),
         ("/vault/sub/Ideas.md", false),
-        ("/vault/.keyslate/trash/Ideas.md", false),
-        ("/vault/.keyslate/trash/index.json", false),
+        ("/vault/.inklo/trash/Ideas.md", false),
+        ("/vault/.inklo/trash/index.json", false),
         ("/other/Ideas.md", false),
     ] {
         assert_eq!(is_vault_change(root, Path::new(path)), expected, "{path}");

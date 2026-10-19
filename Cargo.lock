@@ -1726,10 +1726,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "keyslate"
+name = "inklo"
 version = "0.1.0"
 dependencies = [
- "keyslate-core",
+ "inklo-core",
  "notify-debouncer-mini",
  "serde_json",
  "tauri",
@@ -1739,7 +1739,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "keyslate-core"
+name = "inklo-core"
 version = "0.1.0"
 dependencies = [
  "serde",

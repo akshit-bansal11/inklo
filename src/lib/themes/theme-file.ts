@@ -15,7 +15,7 @@ export function uniqueThemeId(base: string, taken: readonly string[]): string {
 }
 
 /**
- * Reads a `.keyslate-theme.json` file. The file comes from outside the app, so
+ * Reads a `.inklo-theme.json` file. The file comes from outside the app, so
  * it is validated in full; the error names the field that is wrong.
  */
 export function parseThemeFile(text: string, takenIds: readonly string[]): ThemeFileResult {
@@ -23,7 +23,7 @@ export function parseThemeFile(text: string, takenIds: readonly string[]): Theme
   try {
     raw = JSON.parse(text);
   } catch {
-    return { error: "That file is not valid JSON, so it cannot be a Keyslate theme." };
+    return { error: "That file is not valid JSON, so it cannot be a Inklo theme." };
   }
   const parsed = themeSchema.safeParse(raw);
   if (!parsed.success) {

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::io::{decode, read_json, write_atomic, write_json, MAX_TEXT_BYTES};
 use crate::{Error, Format, Note, NoteMeta, Result, SearchHit};
 
-const META_DIR: &str = ".keyslate";
+const META_DIR: &str = ".inklo";
 const INDEX_FILE: &str = "index.json";
 const MAX_TITLE_CHARS: usize = 120;
 const MAX_TAG_CHARS: usize = 32;
@@ -18,9 +18,9 @@ const MAX_HITS_PER_NOTE: usize = 5;
 const MAX_HITS: usize = 200;
 const MAX_SNIPPET_CHARS: usize = 160;
 
-const WELCOME: &str = "# Welcome to Keyslate\n\n\
+const WELCOME: &str = "# Welcome to Inklo\n\n\
 Every note is a plain `.md` or `.txt` file in this folder. Nothing leaves your device.\n\n\
-- Edit these files with any other program; Keyslate picks the changes up.\n\
+- Edit these files with any other program; Inklo picks the changes up.\n\
 - Deleted notes go to the trash and can be restored.\n";
 
 #[derive(Serialize, Deserialize, Default, Clone)]

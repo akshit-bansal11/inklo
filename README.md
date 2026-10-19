@@ -1,4 +1,4 @@
-# Keyslate
+# Inklo
 
 A fully local, keyboard-first notes app for Windows.
 
@@ -8,27 +8,27 @@ Every action is a command. Press `Ctrl+K` to see all of them, `F1` for the curre
 
 ## Install
 
-Download `Keyslate_<version>_x64-setup.exe` from the [latest release](https://github.com/akshit-bansal11/keyslate/releases/latest) and run it. `Keyslate-portable.exe` is the same app without an installer.
+Download `Inklo_<version>_x64-setup.exe` from the [latest release](https://github.com/akshit-bansal11/inklo/releases/latest) and run it. `Inklo-portable.exe` is the same app without an installer.
 
 The builds are not code-signed, so Windows SmartScreen will warn on first run: choose "More info", then "Run anyway". `SHA256SUMS.txt` is published with each release, and each `.exe` carries a build provenance attestation:
 
 ```
-gh attestation verify Keyslate-portable.exe --repo akshit-bansal11/keyslate
+gh attestation verify Inklo-portable.exe --repo akshit-bansal11/inklo
 ```
 
-Keyslate needs the WebView2 runtime, which ships with Windows 11 and current Windows 10.
+Inklo needs the WebView2 runtime, which ships with Windows 11 and current Windows 10.
 
 ## What it does
 
 - **Markdown and plain text.** Each note is one or the other; switch with `Ctrl+Shift+M`. Markdown notes get syntax highlighting, formatting commands, and a live preview beside the editor or on its own.
-- **A vault of real files.** The default vault is `Documents\Keyslate`. Pins and tags live in `.keyslate\index.json` inside it, so the note files stay clean. Edits made by another program show up live.
+- **A vault of real files.** The default vault is `Documents\Inklo`. Pins and tags live in `.inklo\index.json` inside it, so the note files stay clean. Edits made by another program show up live.
 - **Find anything.** `Ctrl+P` jumps to a note by title, or creates one if nothing matches. `Ctrl+Shift+F` searches the text of every note and lands on the matching line.
 - **Import and export.** Import `.md` and `.txt` files from a dialog or by dropping them on the window. Export a note as its own file or as a standalone HTML page, or copy it as Markdown, rich text or plain text. Export the whole vault to a folder.
 - **Smart paste.** Rich text pasted into a Markdown note becomes Markdown. `Ctrl+Shift+V` makes the next paste plain.
 - **Themes.** Six built in, three dark and three light. Duplicate any of them to make your own, and share it as a JSON file. The theme editor warns when a colour pair is hard to read.
 - **Customisation.** Editor font, text size, line height, line width, wrapping, line numbers, spell check, density, sort order, default note format, and every shortcut.
 - **Summon from anywhere.** `Ctrl+Alt+N` brings the window forward with a new note, whatever app has focus. Change or clear it in Settings.
-- **A trash, not a delete.** `Ctrl+Shift+Delete` moves a note to `.keyslate\trash`. Deleting for good asks first.
+- **A trash, not a delete.** `Ctrl+Shift+Delete` moves a note to `.inklo\trash`. Deleting for good asks first.
 
 ## Default shortcuts
 
@@ -105,11 +105,11 @@ npm run dev        # the UI alone in a browser, on an in-memory backend
 npm run tauri dev  # the desktop app
 ```
 
-`npm run check:ci` is the same gate without writing; it is what CI runs. `npm run test:e2e` drives the built UI from the keyboard with Playwright and scans it with axe. `cargo test -p keyslate-core` runs the vault tests.
+`npm run check:ci` is the same gate without writing; it is what CI runs. `npm run test:e2e` drives the built UI from the keyboard with Playwright and scans it with axe. `cargo test -p inklo-core` runs the vault tests.
 
 ### Layout
 
-- `crates/keyslate-core`: all vault logic, with no dependency on Tauri: atomic writes, title and id validation, pins and tags, trash, search, settings I/O.
+- `crates/inklo-core`: all vault logic, with no dependency on Tauri: atomic writes, title and id validation, pins and tags, trash, search, settings I/O.
 - `src-tauri`: the desktop shell. One thin command per backend method, native dialogs, the file watcher, the global shortcut.
 - `src`: the UI. `src/lib/backend/backend.ts` is the single interface between UI and machine, with a Tauri implementation and an in-memory one for the browser and for tests.
 

@@ -8,7 +8,7 @@ import {
   type TextFile,
 } from "@/lib/backend/note-schemas";
 
-const STORAGE_KEY = "keyslate-mock";
+const STORAGE_KEY = "inklo-mock";
 const MAX_HITS = 200;
 
 const persistedSchema = z.object({
@@ -28,7 +28,7 @@ const WELCOME: Note = {
   modified: 0,
   size: 0,
   content:
-    "# Welcome to Keyslate\n\nPress **Ctrl+K** for every command, **Ctrl+N** for a new note.\n",
+    "# Welcome to Inklo\n\nPress **Ctrl+K** for every command, **Ctrl+N** for a new note.\n",
 };
 
 function load(): Persisted {

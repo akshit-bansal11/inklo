@@ -6,7 +6,7 @@ export type KeyOverrides = Readonly<Record<string, string>>;
 
 /** Row id of the system-wide shortcut. Command ids are dotted, so it cannot collide with one. */
 export const GLOBAL_SHORTCUT_ID = "global-shortcut";
-export const GLOBAL_SHORTCUT_TITLE = "Summon Keyslate and start a new note from anywhere";
+export const GLOBAL_SHORTCUT_TITLE = "Summon Inklo and start a new note from anywhere";
 export const DEFAULT_GLOBAL_SHORTCUT = parseSettings(null).globalShortcut;
 
 export interface Keymap {
