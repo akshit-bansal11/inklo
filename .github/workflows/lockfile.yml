@@ -7,7 +7,7 @@ on:
   # this workflow exists on main (dispatch only sees workflows on the default branch).
   push:
     branches-ignore: [main]
-    paths: ["**/Cargo.toml"]
+    paths: ["**/Cargo.toml", ".github/workflows/lockfile.yml"]
 permissions:
   contents: read
 jobs:
