@@ -1,7 +1,13 @@
 # Resolves Cargo.lock on a runner. Nothing is built on the maintainer's machine, so any change to a
 # Cargo.toml is followed by running this on the branch and committing the uploaded Cargo.lock.
 name: lockfile
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  # Also on any branch push that changes a manifest, so a new branch can get its lock before
+  # this workflow exists on main (dispatch only sees workflows on the default branch).
+  push:
+    branches-ignore: [main]
+    paths: ["**/Cargo.toml"]
 permissions:
   contents: read
 jobs:
