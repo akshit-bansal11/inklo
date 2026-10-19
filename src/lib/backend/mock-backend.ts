@@ -28,8 +28,7 @@ const WELCOME: Note = {
   modified: 0,
   size: 0,
   readOnly: false,
-  content:
-    "# Welcome to Inklo\n\nPress **Ctrl+K** for every command, **Ctrl+N** for a new note.\n",
+  content: "# Welcome to Inklo\n\nPress **Ctrl+K** for every command, **Ctrl+N** for a new note.\n",
 };
 
 function load(): Persisted {

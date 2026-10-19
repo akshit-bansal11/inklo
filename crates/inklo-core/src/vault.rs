@@ -359,11 +359,7 @@ impl Vault {
         }
         let (content, encoding) = decode_text(&fs::read(&path)?);
         // The editor works in LF; write_note puts CRLF back for a file that used it.
-        let content = content.replace(
-            "
-", "
-",
-        );
+        let content = content.replace("\r\n", "\n");
         Ok(Note {
             meta,
             content,
