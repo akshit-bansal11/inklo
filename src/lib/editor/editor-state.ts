@@ -39,6 +39,8 @@ interface EditorStateOptions {
   format: NoteFormat;
   settings: EditorSettings;
   selection?: EditorSelection;
+  /** The note must not change: not UTF-8 or UTF-16 text. */
+  readOnly?: boolean;
   /** Wiring owned by the caller, such as the listener that reports edits. */
   extra: Extension;
 }
@@ -99,7 +101,14 @@ export function settingsEffects(settings: EditorSettings): StateEffect<unknown>[
  * followed by Tab still leaves the editor, which is CodeMirror's built-in way
  * out of a Tab-indenting editor.
  */
-export function createEditorState({ doc, format, settings, selection, extra }: EditorStateOptions) {
+export function createEditorState({
+  doc,
+  format,
+  settings,
+  selection,
+  readOnly = false,
+  extra,
+}: EditorStateOptions) {
   return EditorState.create({
     doc,
     selection,
@@ -126,6 +135,7 @@ export function createEditorState({ doc, format, settings, selection, extra }: E
         ...searchKeymap,
       ]),
       editorTheme,
+      EditorState.readOnly.of(readOnly),
       extra,
     ],
   });

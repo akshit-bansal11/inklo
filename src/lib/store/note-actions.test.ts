@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getBackend } from "@/lib/backend/get-backend";
 import { useAppStore } from "@/lib/store/app-store";
 import {
@@ -23,7 +23,15 @@ beforeEach(async () => {
   const backend = getBackend();
   for (const note of await backend.listNotes()) await backend.trashNote(note.id);
   await backend.emptyTrash();
-  useAppStore.setState({ activeId: null, content: "", savedContent: "", toast: null, view: "all" });
+  useAppStore.setState({
+    activeId: null,
+    content: "",
+    savedContent: "",
+    savedModified: null,
+    readOnly: false,
+    toast: null,
+    view: "all",
+  });
   await refreshNotes();
 });
 
@@ -97,5 +105,43 @@ describe("note actions", () => {
     expect(titles().sort()).toEqual(["Readme", "Readme 2", "list"]);
     expect(state().notes.find((note) => note.title === "list")?.format).toBe("txt");
     expect(state().toast?.message).toBe("Imported 2 notes.");
+  });
+
+  it("keeps the typing as a new note when the file changed elsewhere", async () => {
+    await createNote("md", "Shared");
+    setContent("mine");
+    // The mock stamps modified from the clock; make sure the outside edit gets a later one.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await getBackend().writeNote("Shared.md", "theirs", null);
+    await flushSave();
+
+    expect(state().activeId).toBe("Shared (my edits).md");
+    expect((await getBackend().readNote("Shared.md")).content).toBe("theirs");
+    expect((await getBackend().readNote("Shared (my edits).md")).content).toBe("mine");
+  });
+
+  it("two saves in a row do not report a conflict", async () => {
+    await createNote("md", "Twice");
+    setContent("one");
+    const first = flushSave();
+    setContent("two");
+    const second = flushSave();
+    await Promise.all([first, second]);
+
+    expect(state().activeId).toBe("Twice.md");
+    expect(titles()).not.toContain("Twice (my edits)");
+    expect((await getBackend().readNote("Twice.md")).content).toBe("two");
+  });
+
+  it("a failed save keeps the buffer and the open note", async () => {
+    await createNote("md", "Stay");
+    setContent("unsaved");
+    const spy = vi.spyOn(getBackend(), "writeNote").mockRejectedValueOnce(new Error("disk full"));
+    await createNote("md", "Other");
+    spy.mockRestore();
+
+    expect(state().activeId).toBe("Stay.md");
+    expect(state().content).toBe("unsaved");
+    expect(state().toast?.tone).toBe("error");
   });
 });

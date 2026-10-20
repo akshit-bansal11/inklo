@@ -2,7 +2,10 @@
  * Key combos are stored as "Ctrl+Shift+K": modifiers in the order Ctrl, Alt,
  * Shift, then one key name. Names come from `KeyboardEvent.code`, so a combo
  * means the same physical key whatever Shift does to the character.
+ * On a Mac, "Ctrl" in a combo is the Cmd key.
  */
+
+import { IS_MAC } from "@/lib/platform";
 
 const NAMED_CODES: Record<string, string> = {
   Slash: "/",
@@ -41,14 +44,21 @@ function keyName(code: string): string | undefined {
   return NAMED_CODES[code];
 }
 
-type KeyEventLike = Pick<KeyboardEvent, "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey">;
+type KeyEventLike = Pick<KeyboardEvent, "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey"> & {
+  // Narrow on purpose: React types this as a union of modifier names, which (key: string) would reject.
+  getModifierState?: (key: "AltGraph") => boolean;
+};
 
 /** Null for a bare modifier press or a key this app does not bind. */
-export function keyFromEvent(event: KeyEventLike): string | null {
+export function keyFromEvent(event: KeyEventLike, mac = IS_MAC): string | null {
   const name = keyName(event.code);
   if (!name) return null;
+  // AltGr arrives as Ctrl+Alt on Windows: it types a character (ć, €), never a shortcut.
+  if (event.getModifierState?.("AltGraph")) return null;
+  // On a Mac, Control drives text editing and Option types characters: neither is ours.
+  if (mac && (event.ctrlKey || (event.altKey && !event.metaKey))) return null;
   const parts: string[] = [];
-  if (event.ctrlKey || event.metaKey) parts.push("Ctrl");
+  if (mac ? event.metaKey : event.ctrlKey || event.metaKey) parts.push("Ctrl");
   if (event.altKey) parts.push("Alt");
   if (event.shiftKey) parts.push("Shift");
   parts.push(name);
@@ -68,4 +78,15 @@ export function firesWhileTyping(key: string): boolean {
 export function isGlobalAccelerator(key: string): boolean {
   const parts = key.split("+");
   return parts.includes("Ctrl") || parts.includes("Alt");
+}
+
+const MAC_SYMBOLS: Record<string, string> = { Ctrl: "⌘", Alt: "⌥", Shift: "⇧" };
+
+/** A combo as the system writes it: "Ctrl+Shift+K" reads "⌘⇧K" on a Mac. */
+export function keyLabel(key: string, mac = IS_MAC): string {
+  if (!mac) return key;
+  return key
+    .split("+")
+    .map((part) => MAC_SYMBOLS[part] ?? part)
+    .join("");
 }

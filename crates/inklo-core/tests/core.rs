@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use keyslate_core::{
+use inklo_core::{
     is_vault_change, load_settings, normalize_tags, read_text_paths, sanitize_title, save_settings,
     set_vault_path, validate_id, vault_path, write_text, Format, Vault,
 };
@@ -39,14 +39,19 @@ fn create_read_write_round_trip() {
     assert!(meta.modified > 0);
     assert!(!meta.pinned && meta.tags.is_empty());
 
-    // Line endings survive untouched.
-    assert_eq!(v.read_note("Ideas.md").unwrap().content, body);
+    // The file keeps its CRLF; the editor gets LF.
+    assert_eq!(
+        v.read_note("Ideas.md").unwrap().content,
+        "line one
+line two
+"
+    );
     assert_eq!(
         fs::read(dir.path().join("Ideas.md")).unwrap(),
         body.as_bytes()
     );
 
-    let meta = v.write_note("Ideas.md", "changed").unwrap();
+    let meta = v.write_note("Ideas.md", "changed", None).unwrap();
     assert_eq!(meta.size, 7);
     assert_eq!(v.read_note("Ideas.md").unwrap().content, "changed");
     assert_eq!(v.list_notes().len(), 1);
@@ -56,16 +61,16 @@ fn create_read_write_round_trip() {
 fn writes_leave_no_temp_files() {
     let (dir, v) = vault();
     v.create_note("A", Format::Txt, "x").unwrap();
-    v.write_note("A.txt", "y").unwrap();
+    v.write_note("A.txt", "y", None).unwrap();
     v.set_pinned("A.txt", true).unwrap();
-    assert_eq!(names(dir.path()), [".keyslate", "A.txt"]);
-    assert_eq!(names(&dir.path().join(".keyslate")), ["index.json"]);
+    assert_eq!(names(dir.path()), [".inklo", "A.txt"]);
+    assert_eq!(names(&dir.path().join(".inklo")), ["index.json"]);
 }
 
 #[test]
 fn write_to_a_missing_note_fails_instead_of_recreating_it() {
     let (dir, v) = vault();
-    assert!(v.write_note("Gone.md", "x").is_err());
+    assert!(v.write_note("Gone.md", "x", None).is_err());
     assert!(names(dir.path()).is_empty());
 }
 
@@ -202,8 +207,7 @@ fn pin_and_tags_persist_and_tags_are_normalised() {
     assert_eq!(normalize_tags(&many).len(), 20);
 
     let index: Value =
-        serde_json::from_slice(&fs::read(dir.path().join(".keyslate/index.json")).unwrap())
-            .unwrap();
+        serde_json::from_slice(&fs::read(dir.path().join(".inklo/index.json")).unwrap()).unwrap();
     assert_eq!(index["version"], 1);
     assert_eq!(index["notes"]["A.md"]["pinned"], true);
 }
@@ -283,7 +287,7 @@ fn ids_from_the_ui_cannot_escape_the_vault() {
     fs::write(outer.path().join("x.md"), "secret").unwrap();
     let v = Vault::open(outer.path().join("vault")).unwrap();
     assert!(v.read_note("../x.md").is_err());
-    assert!(v.write_note("../x.md", "pwned").is_err());
+    assert!(v.write_note("../x.md", "pwned", None).is_err());
     assert!(v.trash_note("../x.md").is_err());
     assert!(v.restore_note("../../x.md").is_err());
     assert!(v.delete_note("..\\..\\x.md").is_err());
@@ -298,7 +302,7 @@ fn a_corrupt_index_is_set_aside_and_loses_no_notes() {
     let (dir, v) = vault();
     v.create_note("A", Format::Md, "body").unwrap();
     v.set_pinned("A.md", true).unwrap();
-    let meta_dir = dir.path().join(".keyslate");
+    let meta_dir = dir.path().join(".inklo");
     fs::write(meta_dir.join("index.json"), "{ not json").unwrap();
 
     let notes = v.list_notes();
@@ -322,7 +326,7 @@ fn index_entries_for_missing_files_are_pruned_on_write() {
     v.set_pinned("B.md", true).unwrap();
     fs::remove_file(dir.path().join("A.md")).unwrap();
     v.set_tags("B.md", &tags(&["t"])).unwrap();
-    let index = fs::read_to_string(dir.path().join(".keyslate/index.json")).unwrap();
+    let index = fs::read_to_string(dir.path().join(".inklo/index.json")).unwrap();
     assert!(!index.contains("A.md"));
     // A new note reusing the name starts clean.
     assert!(!v.create_note("A", Format::Md, "").unwrap().pinned);
@@ -464,14 +468,129 @@ fn only_root_notes_and_the_active_index_count_as_vault_changes() {
     for (path, expected) in [
         ("/vault/Ideas.md", true),
         ("/vault/Ideas.TXT", true),
-        ("/vault/.keyslate/index.json", true),
+        ("/vault/.inklo/index.json", true),
         ("/vault/.Ideas.md.1-0.tmp", false),
         ("/vault/photo.png", false),
         ("/vault/sub/Ideas.md", false),
-        ("/vault/.keyslate/trash/Ideas.md", false),
-        ("/vault/.keyslate/trash/index.json", false),
+        ("/vault/.inklo/trash/Ideas.md", false),
+        ("/vault/.inklo/trash/index.json", false),
         ("/other/Ideas.md", false),
     ] {
         assert_eq!(is_vault_change(root, Path::new(path)), expected, "{path}");
     }
+}
+
+fn utf16le(text: &str) -> Vec<u8> {
+    let mut bytes = vec![0xFF, 0xFE];
+    bytes.extend(text.encode_utf16().flat_map(u16::to_le_bytes));
+    bytes
+}
+
+#[test]
+fn utf16_notes_round_trip_in_utf16() {
+    let (dir, v) = vault();
+    fs::write(
+        dir.path().join("U.txt"),
+        utf16le("h\u{e9}llo\r\nw\u{f6}rld"),
+    )
+    .unwrap();
+    let note = v.read_note("U.txt").unwrap();
+    assert_eq!(note.content, "h\u{e9}llo\nw\u{f6}rld");
+    assert!(!note.read_only);
+
+    v.write_note("U.txt", "bye\nnow", None).unwrap();
+    assert_eq!(
+        fs::read(dir.path().join("U.txt")).unwrap(),
+        utf16le("bye\r\nnow")
+    );
+}
+
+#[test]
+fn invalid_utf8_opens_read_only_and_is_never_written() {
+    let (dir, v) = vault();
+    fs::write(dir.path().join("L.txt"), b"caf\xe9").unwrap();
+    assert!(v.read_note("L.txt").unwrap().read_only);
+    let err = v.write_note("L.txt", "x", None).unwrap_err();
+    assert!(err.to_string().contains("not UTF-8"));
+    assert_eq!(fs::read(dir.path().join("L.txt")).unwrap(), b"caf\xe9");
+}
+
+#[test]
+fn a_utf8_bom_and_crlf_are_kept() {
+    let (dir, v) = vault();
+    fs::write(dir.path().join("B.md"), b"\xEF\xBB\xBFa\r\nb").unwrap();
+    assert_eq!(v.read_note("B.md").unwrap().content, "a\nb");
+    v.write_note("B.md", "c\nd", None).unwrap();
+    assert_eq!(
+        fs::read(dir.path().join("B.md")).unwrap(),
+        b"\xEF\xBB\xBFc\r\nd"
+    );
+}
+
+#[test]
+fn oversized_writes_are_refused() {
+    let (_dir, v) = vault();
+    v.create_note("Big", Format::Txt, "x").unwrap();
+    let err = v
+        .write_note("Big.txt", &"a".repeat(5 * 1024 * 1024 + 1), None)
+        .unwrap_err();
+    assert!(err.to_string().contains("too large"));
+}
+
+#[test]
+fn an_outside_edit_is_never_overwritten() {
+    let (dir, v) = vault();
+    v.create_note("C", Format::Md, "one").unwrap();
+    let seen = v.read_note("C.md").unwrap().meta.modified;
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    fs::write(dir.path().join("C.md"), "edited elsewhere").unwrap();
+    // Coarse-mtime file systems: make sure the timestamp really moved.
+    if v.read_note("C.md").unwrap().meta.modified == seen {
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        fs::write(dir.path().join("C.md"), "edited elsewhere").unwrap();
+    }
+    let err = v.write_note("C.md", "mine", Some(seen)).unwrap_err();
+    assert!(err.to_string().contains("changed on disk"));
+    assert_eq!(v.read_note("C.md").unwrap().content, "edited elsewhere");
+
+    let now = v.read_note("C.md").unwrap().meta.modified;
+    v.write_note("C.md", "mine", Some(now)).unwrap();
+    assert_eq!(v.read_note("C.md").unwrap().content, "mine");
+}
+
+#[test]
+fn a_missing_vault_is_reported_not_recreated() {
+    let dir = tempfile::tempdir().unwrap();
+    let gone = dir.path().join("gone");
+    let err = Vault::open_existing(&gone).err().unwrap();
+    assert!(err.to_string().contains("missing"));
+    assert!(!gone.exists());
+}
+
+#[test]
+fn the_old_metadata_folder_is_carried_over() {
+    let dir = tempfile::tempdir().unwrap();
+    let old = dir.path().join(".keyslate");
+    fs::create_dir(&old).unwrap();
+    fs::write(
+        old.join("index.json"),
+        r#"{"version":1,"notes":{"A.md":{"pinned":true}}}"#,
+    )
+    .unwrap();
+    fs::write(dir.path().join("A.md"), "a").unwrap();
+
+    let v = Vault::open(dir.path()).unwrap();
+    assert!(!old.exists());
+    assert!(dir.path().join(".inklo/index.json").exists());
+    let notes = v.list_notes();
+    assert_eq!(notes.len(), 1);
+    assert!(notes[0].pinned);
+}
+
+#[test]
+fn oversized_notes_are_refused() {
+    let (dir, v) = vault();
+    fs::write(dir.path().join("Big.txt"), vec![b'a'; 5 * 1024 * 1024 + 1]).unwrap();
+    let err = v.read_note("Big.txt").unwrap_err();
+    assert!(err.to_string().contains("too large"));
 }

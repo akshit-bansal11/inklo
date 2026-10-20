@@ -47,10 +47,66 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     written
 }
 
-/// Lossy UTF-8 with a leading BOM removed; everything else is kept as-is.
+/// How a note file stores its text, so a save writes it back the same way.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Encoding {
+    Utf8,
+    Utf8Bom,
+    Utf16Le,
+    Utf16Be,
+}
+
+/// The text of a file and its encoding. `None`: not UTF-8, nor UTF-16 with a byte-order
+/// mark, so the text shown is a lossy reading and must never be written back.
+pub(crate) fn decode_text(bytes: &[u8]) -> (String, Option<Encoding>) {
+    if let Some(rest) = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]) {
+        return utf8(rest, Encoding::Utf8Bom);
+    }
+    if let Some(rest) = bytes.strip_prefix(&[0xFF, 0xFE]) {
+        return utf16(rest, u16::from_le_bytes, Encoding::Utf16Le);
+    }
+    if let Some(rest) = bytes.strip_prefix(&[0xFE, 0xFF]) {
+        return utf16(rest, u16::from_be_bytes, Encoding::Utf16Be);
+    }
+    utf8(bytes, Encoding::Utf8)
+}
+
+fn utf8(bytes: &[u8], encoding: Encoding) -> (String, Option<Encoding>) {
+    match std::str::from_utf8(bytes) {
+        Ok(text) => (text.to_string(), Some(encoding)),
+        Err(_) => (String::from_utf8_lossy(bytes).into_owned(), None),
+    }
+}
+
+fn utf16(bytes: &[u8], unit: fn([u8; 2]) -> u16, encoding: Encoding) -> (String, Option<Encoding>) {
+    // An odd trailing byte lands in `rest`: then the file is not UTF-16.
+    let (pairs, rest) = bytes.as_chunks::<2>();
+    let units: Vec<u16> = pairs.iter().map(|&pair| unit(pair)).collect();
+    match String::from_utf16(&units) {
+        Ok(text) if rest.is_empty() => (text, Some(encoding)),
+        _ => (String::from_utf16_lossy(&units), None),
+    }
+}
+
+/// The bytes to write for `text` in `encoding`, byte-order mark included.
+pub(crate) fn encode_text(text: &str, encoding: Encoding) -> Vec<u8> {
+    match encoding {
+        Encoding::Utf8 => text.as_bytes().to_vec(),
+        Encoding::Utf8Bom => [&[0xEF, 0xBB, 0xBF][..], text.as_bytes()].concat(),
+        Encoding::Utf16Le => [0xFF, 0xFE]
+            .into_iter()
+            .chain(text.encode_utf16().flat_map(u16::to_le_bytes))
+            .collect(),
+        Encoding::Utf16Be => [0xFE, 0xFF]
+            .into_iter()
+            .chain(text.encode_utf16().flat_map(u16::to_be_bytes))
+            .collect(),
+    }
+}
+
+/// Text for search and import: any encoding `decode_text` knows, lossy otherwise.
 pub(crate) fn decode(bytes: &[u8]) -> String {
-    let text = String::from_utf8_lossy(bytes);
-    text.strip_prefix('\u{feff}').unwrap_or(&text).to_string()
+    decode_text(bytes).0
 }
 
 /// Reads a JSON file. Missing yields `None`. A file that does not parse is

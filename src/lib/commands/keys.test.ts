@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firesWhileTyping, isGlobalAccelerator, keyFromEvent } from "@/lib/commands/keys";
+import { firesWhileTyping, isGlobalAccelerator, keyFromEvent, keyLabel } from "@/lib/commands/keys";
 
 const press = (
   code: string,
@@ -13,7 +13,23 @@ const press = (
     metaKey: mods.meta ?? false,
   });
 
+const base = { ctrlKey: false, altKey: false, shiftKey: false, metaKey: false };
+
 describe("keyFromEvent", () => {
+  it("ignores AltGr, which browsers report as Ctrl+Alt", () => {
+    const event = { ...base, code: "KeyC", ctrlKey: true, altKey: true };
+    expect(keyFromEvent({ ...event, getModifierState: (k) => k === "AltGraph" }, false)).toBeNull();
+  });
+
+  it("on a Mac maps Cmd to Ctrl and leaves Control and Option alone", () => {
+    expect(keyFromEvent({ ...base, code: "KeyK", metaKey: true }, true)).toBe("Ctrl+K");
+    expect(keyFromEvent({ ...base, code: "KeyA", ctrlKey: true }, true)).toBeNull();
+    expect(keyFromEvent({ ...base, code: "KeyE", altKey: true }, true)).toBeNull();
+    expect(keyFromEvent({ ...base, code: "KeyE", altKey: true, metaKey: true }, true)).toBe(
+      "Ctrl+Alt+E",
+    );
+  });
+
   it("orders modifiers Ctrl, Alt, Shift whatever order they were pressed in", () => {
     expect(press("KeyK", { shift: true, alt: true, ctrl: true })).toBe("Ctrl+Alt+Shift+K");
   });
@@ -50,5 +66,12 @@ describe("isGlobalAccelerator", () => {
   it("needs Ctrl or Alt", () => {
     expect(isGlobalAccelerator("Ctrl+Alt+N")).toBe(true);
     expect(isGlobalAccelerator("F5")).toBe(false);
+  });
+});
+
+describe("keyLabel", () => {
+  it("writes Mac symbols on a Mac and leaves the combo alone elsewhere", () => {
+    expect(keyLabel("Ctrl+Shift+K", true)).toBe("⌘⇧K");
+    expect(keyLabel("Ctrl+Shift+K", false)).toBe("Ctrl+Shift+K");
   });
 });

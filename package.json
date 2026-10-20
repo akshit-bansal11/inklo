@@ -1,8 +1,8 @@
 {
-  "name": "keyslate",
+  "name": "inklo",
   "private": true,
-  "version": "0.1.0",
-  "description": "A fully local, keyboard-first notes app for Windows. Plain .md and .txt files, no network.",
+  "version": "0.2.0",
+  "description": "A fully local, keyboard-first notes app for Windows, macOS and Linux. Plain .md and .txt files, no network.",
   "license": "MIT",
   "type": "module",
   "engines": {

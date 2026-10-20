@@ -5,6 +5,7 @@ import { useCommandKey } from "@/hooks/use-command-key";
 import { cn } from "@/lib/cn";
 import { executeCommand } from "@/lib/commands/execute";
 import { registerCommands } from "@/lib/commands/registry";
+import { FILE_MANAGER } from "@/lib/platform";
 import { VIEWS } from "@/lib/sidebar/sidebar-constants";
 import { useAppStore } from "@/lib/store/app-store";
 import { setFilterText, setTagFilter, setView } from "@/lib/store/ui-actions";
@@ -174,7 +175,7 @@ export function Sidebar() {
         className="ks-sidebar-target block w-full shrink-0 border-border border-t px-2 text-left text-muted text-xs hover:bg-hover"
         onClick={() => executeCommand("vault.reveal")}
       >
-        <span className="sr-only">Open vault folder in Explorer: </span>
+        <span className="sr-only">{`Open vault folder in ${FILE_MANAGER}: `}</span>
         <span className="ks-path block">
           <bdi dir="ltr">{vaultPath === "" ? "Vault folder" : vaultPath}</bdi>
         </span>

@@ -7,6 +7,7 @@ import {
 } from "@/components/settings/settings-constants";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { useIsNative } from "@/hooks/settings/use-is-native";
+import { FILE_MANAGER } from "@/lib/platform";
 import { useAppStore } from "@/lib/store/app-store";
 import { updateSettings } from "@/lib/store/ui-actions";
 
@@ -40,7 +41,7 @@ export function NotesSection() {
         {native ? null : (
           <p className="text-muted text-sm">
             This is the browser preview, so notes are kept in memory and are not saved to disk. The
-            folder buttons work in the Keyslate app.
+            folder buttons work in the Inklo app.
           </p>
         )}
         <div className="flex flex-wrap gap-2">
@@ -48,7 +49,7 @@ export function NotesSection() {
             Change folder
           </CommandButton>
           <CommandButton commandId="vault.reveal" disabled={!native}>
-            Open in Explorer
+            {`Open in ${FILE_MANAGER}`}
           </CommandButton>
         </div>
       </div>

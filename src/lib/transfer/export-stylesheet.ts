@@ -1,6 +1,6 @@
 /*
  * The one place in the codebase where literal colours are allowed. An exported
- * HTML file is opened outside Keyslate, where none of the app's tokens exist,
+ * HTML file is opened outside Inklo, where none of the app's tokens exist,
  * so it has to carry its own. Light and dark are both written out, and both
  * pairs clear 4.5:1 for text.
  */

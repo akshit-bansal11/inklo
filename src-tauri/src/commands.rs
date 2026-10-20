@@ -1,4 +1,4 @@
-//! Thin wrappers: resolve the vault, call `keyslate-core`, turn errors into strings.
+//! Thin wrappers: resolve the vault, call `inklo-core`, turn errors into strings.
 //!
 //! Every command is `async` so it runs off the main thread; that is what makes
 //! the blocking dialog calls safe and keeps a slow disk from freezing the UI.
@@ -7,7 +7,7 @@ use std::fmt::Display;
 use std::path::PathBuf;
 use std::process::Command;
 
-use keyslate_core::{Format, Note, NoteMeta, SearchHit, TextFile, Vault};
+use inklo_core::{Format, Note, NoteMeta, SearchHit, TextFile, Vault};
 use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::{DialogExt, FileDialogBuilder};
@@ -23,7 +23,7 @@ fn err(e: impl Display) -> String {
 
 fn vault(state: &State<'_, AppState>) -> CmdResult<Vault> {
     let path = state.lock()?.vault.clone();
-    Vault::open(path).map_err(err)
+    Vault::open_existing(path).map_err(err)
 }
 
 fn path_string(path: PathBuf) -> String {
@@ -58,7 +58,7 @@ pub async fn set_vault_path(
     path: String,
 ) -> CmdResult<()> {
     let vault = Vault::open(path.trim()).map_err(err)?;
-    keyslate_core::set_vault_path(&settings_file(&app)?, vault.root()).map_err(err)?;
+    inklo_core::set_vault_path(&settings_file(&app)?, vault.root()).map_err(err)?;
     // A folder that cannot be watched still works as a vault; it only misses outside edits.
     let watcher = watch(&app, vault.root()).ok();
     let mut inner = state.lock()?;
@@ -105,8 +105,11 @@ pub async fn write_note(
     state: State<'_, AppState>,
     id: String,
     content: String,
+    expected_modified: Option<u64>,
 ) -> CmdResult<NoteMeta> {
-    vault(&state)?.write_note(&id, &content).map_err(err)
+    vault(&state)?
+        .write_note(&id, &content, expected_modified)
+        .map_err(err)
 }
 
 #[tauri::command]
@@ -191,14 +194,14 @@ pub async fn open_text_files(app: AppHandle, extensions: Vec<String>) -> CmdResu
     Ok(picked
         .into_iter()
         .filter_map(|file| file.into_path().ok())
-        .filter_map(|path| keyslate_core::read_text_file(&path))
+        .filter_map(|path| inklo_core::read_text_file(&path))
         .collect())
 }
 
 #[tauri::command]
 pub async fn read_text_paths(paths: Vec<String>) -> CmdResult<Vec<TextFile>> {
     let paths: Vec<PathBuf> = paths.into_iter().map(PathBuf::from).collect();
-    Ok(keyslate_core::read_text_paths(&paths))
+    Ok(inklo_core::read_text_paths(&paths))
 }
 
 #[tauri::command]
@@ -211,7 +214,7 @@ pub async fn save_text_file(
         return Ok(None);
     };
     let path = picked.into_path().map_err(err)?;
-    keyslate_core::write_text(&path, &content).map_err(err)?;
+    inklo_core::write_text(&path, &content).map_err(err)?;
     Ok(Some(path_string(path)))
 }
 
@@ -227,9 +230,21 @@ pub async fn export_vault(app: AppHandle, state: State<'_, AppState>) -> CmdResu
 #[tauri::command]
 pub async fn reveal_vault(state: State<'_, AppState>) -> CmdResult<()> {
     let vault = vault(&state)?;
+    // Run by full path where the OS has a fixed opener: a bare name on Windows is
+    // looked up beside the exe first, where a planted explorer.exe could sit.
+    let opener: PathBuf = if cfg!(windows) {
+        std::env::var_os("WINDIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(r"C:\Windows"))
+            .join("explorer.exe")
+    } else if cfg!(target_os = "macos") {
+        PathBuf::from("/usr/bin/open")
+    } else {
+        PathBuf::from("xdg-open")
+    };
     // The path is a separate argv entry, never part of a shell string. Explorer
     // exits non-zero even on success, so only a failure to launch is an error.
-    Command::new("explorer.exe")
+    Command::new(opener)
         .arg(vault.root())
         .status()
         .map(|_| ())
@@ -238,12 +253,12 @@ pub async fn reveal_vault(state: State<'_, AppState>) -> CmdResult<()> {
 
 #[tauri::command]
 pub async fn load_settings(app: AppHandle) -> CmdResult<Value> {
-    keyslate_core::load_settings(&settings_file(&app)?).map_err(err)
+    inklo_core::load_settings(&settings_file(&app)?).map_err(err)
 }
 
 #[tauri::command]
 pub async fn save_settings(app: AppHandle, settings: Value) -> CmdResult<()> {
-    keyslate_core::save_settings(&settings_file(&app)?, settings).map_err(err)
+    inklo_core::save_settings(&settings_file(&app)?, settings).map_err(err)
 }
 
 #[tauri::command]
@@ -253,8 +268,14 @@ pub async fn set_global_shortcut(app: AppHandle, accelerator: Option<String>) ->
     let Some(accelerator) = accelerator.filter(|a| !a.trim().is_empty()) else {
         return Ok(());
     };
+    // On Wayland an app cannot grab keys system-wide; say so instead of failing quietly.
+    if cfg!(target_os = "linux") && std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        return Err("Global shortcuts do not work on Wayland. Use your desktop's own keyboard settings to start Inklo.".into());
+    }
+    // Keys are stored as "Ctrl+…" on every system; on a Mac that Ctrl is Cmd.
+    let accelerator = accelerator.trim().replacen("Ctrl+", "CommandOrControl+", 1);
     shortcuts
-        .on_shortcut(accelerator.trim(), |app, _shortcut, event| {
+        .on_shortcut(accelerator.as_str(), |app, _shortcut, event| {
             if event.state != ShortcutState::Pressed {
                 return;
             }

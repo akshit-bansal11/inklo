@@ -6,7 +6,9 @@ import tseslint from "typescript-eslint";
 // Biome owns formatting, imports and most lint. ESLint is here for the two
 // things Biome does not do: the React hooks rules and type-aware checks.
 export default tseslint.config(
-  { ignores: ["dist", "target", "src-tauri", "crates", "node_modules", "playwright-report"] },
+  {
+    ignores: ["dist", "target", "src-tauri", "crates", "node_modules", "playwright-report", "site"],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {

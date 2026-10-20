@@ -1,72 +1,186 @@
 name: Release
 
-# Pushing a v* tag builds the installer and publishes a GitHub release.
+# Pushing a v* tag builds Windows (installer and standalone exe), macOS
+# (universal dmg) and Linux (AppImage, deb). A final publish job, the only one
+# with a write permission, sums, attests and releases them with notes taken
+# from CHANGELOG.md. Running it by hand makes a private draft instead.
 # Deployment lives here and nowhere else; CI never releases.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      label:
+        description: 'Name for the draft build (a run number is appended, so it never collides)'
+        default: 'test-build'
+        required: false
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
 
 jobs:
-  release:
-    runs-on: windows-latest
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version-file: .nvmrc
-          cache: npm
-      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: npm ci
-
+          persist-credentials: false
       - name: Check the tag matches the app version
+        id: version
         shell: bash
         run: |
           version=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "Tag $GITHUB_REF_NAME does not match tauri.conf.json version $version" >&2
-            exit 1
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match tauri.conf.json version $version"
+              exit 1
+            fi
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$version-draft.$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
           fi
 
+  build:
+    needs: version
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            os: windows-latest
+            args: "--bundles nsis"
+          - name: macos
+            os: macos-latest
+            args: "--target universal-apple-darwin --bundles app,dmg"
+          - name: linux
+            os: ubuntu-22.04
+            args: "--bundles appimage,deb"
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev
+      # No cache here: a release never restores one that another branch could have written.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - name: Rust targets for the universal binary
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - run: npm ci
+      # The gate passes before anything ships.
+      - run: npm run check:ci
+      - run: npm test
+
       # Runs `npm run build` itself (beforeBuildCommand), then compiles and bundles.
-      - run: npx tauri build
+      - run: npx tauri build --ci ${{ matrix.args }} -- --locked
 
       # The only place the real app is ever started before a person does. It
       # proves the exe launches, stays up, starts its webview and that the Rust
       # setup created the default vault. It does not look at the window.
       - name: Smoke test the built app
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $app = Start-Process target/release/keyslate.exe -PassThru
+          $app = Start-Process target/release/inklo.exe -PassThru
           Start-Sleep -Seconds 20
-          if ($app.HasExited) { throw "Keyslate exited with code $($app.ExitCode)" }
-          $welcome = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Keyslate/Welcome.md'
+          if ($app.HasExited) { throw "Inklo exited with code $($app.ExitCode)" }
+          $welcome = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Inklo/Welcome.md'
           if (-not (Test-Path $welcome)) { throw "The default vault was not created: $welcome is missing" }
           if (-not (Get-Process msedgewebview2 -ErrorAction SilentlyContinue)) { throw "No WebView2 process is running" }
           Stop-Process -Id $app.Id -Force
           Write-Host "Launched, created $welcome, webview running."
 
-      - name: Collect assets
+      - name: Name the files for the version
         shell: bash
         run: |
-          mkdir release
-          cp target/release/bundle/nsis/*-setup.exe release/
-          cp target/release/keyslate.exe release/Keyslate-portable.exe
-          cd release
-          sha256sum * > SHA256SUMS.txt
-          ls -l
+          mkdir -p dist
+          case "${{ matrix.name }}" in
+            windows)
+              cp target/release/bundle/nsis/*-setup.exe "dist/Inklo-$VERSION-windows-x64-setup.exe"
+              cp target/release/inklo.exe "dist/Inklo-$VERSION-windows-x64.exe"
+              ;;
+            macos) cp target/universal-apple-darwin/release/bundle/dmg/*.dmg "dist/Inklo-$VERSION-macos-universal.dmg" ;;
+            linux)
+              cp target/release/bundle/appimage/*.AppImage "dist/Inklo-$VERSION-linux-x86_64.AppImage"
+              cp target/release/bundle/deb/*.deb "dist/Inklo-$VERSION-linux-amd64.deb"
+              ;;
+          esac
+          ls -l dist
 
-      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          subject-path: release/*.exe
+          name: dist-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    # The only job that can write: it runs no npm or cargo, only sums, attests and releases what build uploaded.
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      # Only for CHANGELOG.md.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+
+      - name: Sum the files
+        shell: bash
+        run: cd dist && sha256sum Inklo-* > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: Release notes from CHANGELOG.md
+        shell: pwsh
+        run: |
+          $text = (Get-Content CHANGELOG.md -Raw) -replace "`r`n", "`n"
+          $section = if ($env:GITHUB_EVENT_NAME -eq 'push') { $env:VERSION } else { 'Unreleased' }
+          $match = [regex]::Match($text, "(?ms)^## \[$([regex]::Escape($section))\][^\n]*\n(.*?)(?=^## \[|^\[[^\]]+\]: |\z)")
+          $notes = if ($match.Success) { $match.Groups[1].Value.Trim() } else { '' }
+          if (-not $notes) {
+            if ($env:GITHUB_EVENT_NAME -eq 'push') { throw "CHANGELOG.md has no section for $section" }
+            $notes = 'Nothing is listed under Unreleased yet.'
+          }
+          $notes | Set-Content -Encoding utf8 notes.md
+
+      # Tag builds only: an attestation of a public repo goes to Sigstore's
+      # public log, which would announce a draft.
+      - if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/Inklo-*
 
       - name: Publish
+        if: github.event_name == 'push'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" release/* --title "Keyslate $GITHUB_REF_NAME" --generate-notes --verify-tag
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "Inklo $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+
+      - name: Attach the draft build
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ inputs.label }}-${{ github.run_number }}
+        run: gh release create "$NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "Inklo $NAME" --notes-file notes.md --draft --target "$GITHUB_SHA"

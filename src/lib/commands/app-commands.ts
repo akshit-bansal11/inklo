@@ -1,5 +1,6 @@
 import { getBackend } from "@/lib/backend/get-backend";
 import type { Command } from "@/lib/commands/registry";
+import { FILE_MANAGER } from "@/lib/platform";
 import { FONT_SIZE, type ViewMode } from "@/lib/settings/settings-schema";
 import { useAppStore } from "@/lib/store/app-store";
 import {
@@ -58,7 +59,15 @@ export const APP_COMMANDS: readonly Command[] = [
     defaultKey: "Ctrl+Shift+N",
     run: () => createNote("txt"),
   },
-  { id: "note.save", title: "Save now", group: "Note", defaultKey: "Ctrl+S", run: flushSave },
+  {
+    id: "note.save",
+    title: "Save now",
+    group: "Note",
+    defaultKey: "Ctrl+S",
+    run: async () => {
+      await flushSave();
+    },
+  },
   {
     id: "note.duplicate",
     title: "Duplicate note",
@@ -218,7 +227,7 @@ export const APP_COMMANDS: readonly Command[] = [
   { id: "vault.change", title: "Choose vault folder", group: "Vault", run: changeVault },
   {
     id: "vault.reveal",
-    title: "Open vault folder in Explorer",
+    title: `Open vault folder in ${FILE_MANAGER}`,
     group: "Vault",
     run: () => getBackend().revealVault(),
   },

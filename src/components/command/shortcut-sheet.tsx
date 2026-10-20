@@ -5,6 +5,7 @@ import { filterCommands, matchesFilter } from "@/lib/command-ui/command-filter";
 import { groupCommands } from "@/lib/command-ui/command-groups";
 import { GLOBAL_SHORTCUT_TITLE } from "@/lib/command-ui/keybindings";
 import { closeIfCurrent, switchOverlay } from "@/lib/command-ui/picker-actions";
+import { keyLabel } from "@/lib/commands/keys";
 import { keyFor } from "@/lib/commands/registry";
 import { useAppStore } from "@/lib/store/app-store";
 import "@/styles/command.css";
@@ -63,7 +64,9 @@ function ShortcutSheetBody() {
                 {entry.commands.map((command) => (
                   <li key={command.id} className={ROW}>
                     <span className="min-w-0">{command.title}</span>
-                    <kbd className="ks-kbd shrink-0">{keyFor(command, keybindings)}</kbd>
+                    <kbd className="ks-kbd shrink-0">
+                      {keyLabel(keyFor(command, keybindings) ?? "")}
+                    </kbd>
                   </li>
                 ))}
               </ul>
@@ -71,10 +74,10 @@ function ShortcutSheetBody() {
           ))}
           {showGlobal ? (
             <section className="ks-shortcut-group">
-              <h3 className={HEADING}>Anywhere in Windows</h3>
+              <h3 className={HEADING}>From any app</h3>
               <p className={ROW}>
                 <span className="min-w-0">{GLOBAL_SHORTCUT_TITLE}</span>
-                <kbd className="ks-kbd shrink-0">{globalShortcut}</kbd>
+                <kbd className="ks-kbd shrink-0">{keyLabel(globalShortcut ?? "")}</kbd>
               </p>
             </section>
           ) : null}

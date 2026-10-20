@@ -1,6 +1,6 @@
 [package]
-name = "keyslate-core"
-description = "Vault, search and settings logic for Keyslate. No UI or Tauri dependency."
+name = "inklo-core"
+description = "Vault, search and settings logic for Inklo. No UI or Tauri dependency."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

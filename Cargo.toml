@@ -1,13 +1,13 @@
 [workspace]
-members = ["crates/keyslate-core", "src-tauri"]
+members = ["crates/inklo-core", "src-tauri"]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 authors = ["Akshit Bansal"]
-repository = "https://github.com/akshit-bansal11/keyslate"
+repository = "https://github.com/akshit-bansal11/inklo"
 
 [workspace.dependencies]
 serde = { version = "1.0.229", features = ["derive"] }

@@ -22,7 +22,7 @@ export function markdownToFragment(source: string): DocumentFragment {
     const note = document.createElement("span");
     note.className = "ks-image-note";
     note.textContent = image.alt || "Image not shown";
-    note.title = "Keyslate works offline and does not load images from the network.";
+    note.title = "Inklo works offline and does not load images from the network.";
     image.replaceWith(note);
   }
   return fragment;

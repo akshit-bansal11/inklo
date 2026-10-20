@@ -1,12 +1,13 @@
-import { firesWhileTyping, isGlobalAccelerator } from "@/lib/commands/keys";
-import { type Command, keyFor } from "@/lib/commands/registry";
+import { firesWhileTyping, isGlobalAccelerator, keyLabel } from "@/lib/commands/keys";
+import { type Command, defaultKeyOf, keyFor } from "@/lib/commands/registry";
+import { IS_MAC } from "@/lib/platform";
 import { parseSettings } from "@/lib/settings/settings-schema";
 
 export type KeyOverrides = Readonly<Record<string, string>>;
 
 /** Row id of the system-wide shortcut. Command ids are dotted, so it cannot collide with one. */
 export const GLOBAL_SHORTCUT_ID = "global-shortcut";
-export const GLOBAL_SHORTCUT_TITLE = "Summon Keyslate and start a new note from anywhere";
+export const GLOBAL_SHORTCUT_TITLE = "Summon Inklo and start a new note from anywhere";
 export const DEFAULT_GLOBAL_SHORTCUT = parseSettings(null).globalShortcut;
 
 export interface Keymap {
@@ -33,7 +34,7 @@ export type KeyVerdict =
 /** Stores a key for one command ("" unbinds it), dropping an override that only restates the default. */
 function withKey(overrides: KeyOverrides, command: Command, key: string): KeyOverrides {
   const rest = Object.fromEntries(Object.entries(overrides).filter(([id]) => id !== command.id));
-  return key === (command.defaultKey ?? "") ? rest : { ...rest, [command.id]: key };
+  return key === (defaultKeyOf(command) ?? "") ? rest : { ...rest, [command.id]: key };
 }
 
 /** Every command currently on `key`, other than `exceptId`. */
@@ -81,17 +82,20 @@ export function judgeKey(keymap: Keymap, target: string, key: string): KeyVerdic
   if (key === "") return { kind: "ok" };
   if (target === GLOBAL_SHORTCUT_ID) {
     if (!isGlobalAccelerator(key)) {
-      return { kind: "rejected", reason: `${key} cannot work from other apps. Add Ctrl or Alt.` };
+      return {
+        kind: "rejected",
+        reason: `${keyLabel(key)} cannot work from other apps. Add ${IS_MAC ? "Cmd" : "Ctrl or Alt"}.`,
+      };
     }
   } else if (!firesWhileTyping(key)) {
     return {
       kind: "rejected",
-      reason: `${key} would fire while you type in a note. Add Ctrl or Alt, or use a function key.`,
+      reason: `${keyLabel(key)} would fire while you type in a note. Add ${IS_MAC ? "Cmd" : "Ctrl or Alt"}, or use a function key.`,
     };
   } else if (key === keymap.globalShortcut) {
     return {
       kind: "rejected",
-      reason: `${key} is the global shortcut. Change the global shortcut first, or choose another combination.`,
+      reason: `${keyLabel(key)} is the global shortcut. Change the global shortcut first, or choose another combination.`,
     };
   }
   const others = conflictsFor(keymap.commands, keymap.overrides, key, target);

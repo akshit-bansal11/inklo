@@ -28,6 +28,10 @@ export interface AppState {
   activeId: string | null;
   content: string;
   savedContent: string;
+  /** `modified` of the open note as last read or written; a save expects the file to still have it. */
+  savedModified: number | null;
+  /** The open note is not UTF-8 or UTF-16 text: shown, never written. */
+  readOnly: boolean;
   saving: boolean;
   /** 1-based line the editor should scroll to and place the caret on, once the note is shown. */
   pendingLine: number | null;
@@ -56,6 +60,8 @@ export const useAppStore = create<AppState>(() => ({
   activeId: null,
   content: "",
   savedContent: "",
+  savedModified: null,
+  readOnly: false,
   saving: false,
   pendingLine: null,
   view: "all",

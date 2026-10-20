@@ -9,7 +9,7 @@ import { buildHtmlDocument, noteToHtml, noteToPlainText } from "@/lib/transfer/n
 import { parseSettingsFile } from "@/lib/transfer/settings-file";
 
 const NOTE_EXTENSIONS = ["md", "markdown", "txt"];
-const SETTINGS_FILE_NAME = "keyslate-settings.json";
+const SETTINGS_FILE_NAME = "inklo-settings.json";
 
 interface OpenNote {
   title: string;
@@ -56,7 +56,7 @@ async function importSettings() {
   if (!file) return;
   const settings = parseSettingsFile(file.content, useAppStore.getState().settings);
   if (settings === null) {
-    notify(`${file.name} is not a Keyslate settings file. Nothing was changed.`, "error");
+    notify(`${file.name} is not an Inklo settings file. Nothing was changed.`, "error");
     return;
   }
   updateSettings(settings);
@@ -121,8 +121,13 @@ export const TRANSFER_COMMANDS: readonly Command[] = [
     id: "settings.export",
     title: "Export settings to a file",
     group: "App",
-    run: () =>
-      saveAs(SETTINGS_FILE_NAME, `${JSON.stringify(useAppStore.getState().settings, null, 2)}\n`),
+    run: () => {
+      const { settings } = useAppStore.getState();
+      const shared = Object.fromEntries(
+        Object.entries(settings).filter(([key]) => key !== "vaultPath"),
+      );
+      return saveAs(SETTINGS_FILE_NAME, `${JSON.stringify(shared, null, 2)}\n`);
+    },
   },
   {
     id: "settings.import",

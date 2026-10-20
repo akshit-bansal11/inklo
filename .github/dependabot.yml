@@ -10,6 +10,19 @@ updates:
       # typescript-eslint 8 declares typescript <6.1.0; lift this when it supports 7.
       - dependency-name: typescript
         update-types: ["version-update:semver-major"]
+  - package-ecosystem: npm
+    directory: /site
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 3
+    groups:
+      npm-site: { patterns: ["*"] }
+    ignore:
+      # Held back to match the pinned stack: eslint-config-next bundles an
+      # eslint-plugin-react that breaks on ESLint 10, and typescript stays on 5.9.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: cargo
     directory: /
     schedule: { interval: weekly }

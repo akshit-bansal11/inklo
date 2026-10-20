@@ -1,4 +1,4 @@
-//! Vault, search and settings logic for Keyslate.
+//! Vault, search and settings logic for Inklo.
 //!
 //! Everything here takes paths as parameters and knows nothing about Tauri, so
 //! the whole data layer is testable without a window.
@@ -83,6 +83,8 @@ pub struct Note {
     #[serde(flatten)]
     pub meta: NoteMeta,
     pub content: String,
+    /// The file is not UTF-8 or UTF-16 text: shown as best it can be, never written back.
+    pub read_only: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
