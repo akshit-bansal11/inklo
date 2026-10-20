@@ -156,9 +156,9 @@ export function UsingSections() {
         title="What it does"
         lede={
           <>
-            Every action is a command. Press <C>Ctrl+K</C> to see all of them,{" "}
-            <C>F1</C> for the current shortcuts, and rebind any of them in Settings. On
-            a Mac, use Cmd wherever this page says Ctrl.
+            Every action is a command. Press <C>Ctrl+K</C> to see all of them, <C>F1</C>{" "}
+            for the current shortcuts, and rebind any of them in Settings. On a Mac, use
+            Cmd wherever this page says Ctrl.
           </>
         }
       >

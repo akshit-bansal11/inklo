@@ -118,8 +118,8 @@ export function ProjectSections({ version }: { version: string }) {
         lede={`This site was built from version ${version}.`}
       >
         <P>
-          Set the version in <C>Cargo.toml</C>, <C>src-tauri/tauri.conf.json</C>{" "}
-          and <C>package.json</C>, commit, then push a matching tag:
+          Set the version in <C>Cargo.toml</C>, <C>src-tauri/tauri.conf.json</C> and{" "}
+          <C>package.json</C>, commit, then push a matching tag:
         </P>
         <CodeBlock
           title="Tag a release"

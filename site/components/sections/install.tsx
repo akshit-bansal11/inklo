@@ -15,9 +15,7 @@ export function InstallSections() {
         lede={
           <>
             Download the file for your system from the{" "}
-            <ExternalLink href={`${REPO}/releases/latest`}>
-              latest release
-            </ExternalLink>
+            <ExternalLink href={`${REPO}/releases/latest`}>latest release</ExternalLink>
             . No build is code-signed, so each system warns on first run; the steps are
             below.
           </>
@@ -25,11 +23,10 @@ export function InstallSections() {
       >
         <Sub>Windows</Sub>
         <P>
-          Windows 10 or 11, x64. Run{" "}
-          <C>Inklo-&lt;version&gt;-windows-x64-setup.exe</C> to install.{" "}
-          <C>Inklo-&lt;version&gt;-windows-x64.exe</C> is the same app without an
-          installer; it still keeps its settings in your user profile, so it is not a
-          portable install.
+          Windows 10 or 11, x64. Run <C>Inklo-&lt;version&gt;-windows-x64-setup.exe</C>{" "}
+          to install. <C>Inklo-&lt;version&gt;-windows-x64.exe</C> is the same app
+          without an installer; it still keeps its settings in your user profile, so it
+          is not a portable install.
         </P>
         <P>
           SmartScreen will warn on first run: choose &ldquo;More info&rdquo;, then

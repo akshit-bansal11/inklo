@@ -114,10 +114,7 @@ const LIMITS: string[] = [
 const DOWNLOADS: { system: string; files: string[]; note: string }[] = [
   {
     system: "Windows",
-    files: [
-      "Inklo-<version>-windows-x64-setup.exe",
-      "Inklo-<version>-windows-x64.exe",
-    ],
+    files: ["Inklo-<version>-windows-x64-setup.exe", "Inklo-<version>-windows-x64.exe"],
     note: "Windows 10 or 11, x64. Run the setup file to install; the other is the same app without an installer and still keeps its settings in your user profile. SmartScreen warns on first run: choose “More info”, then “Run anyway”. Inklo needs the WebView2 runtime, which ships with Windows 11 and current Windows 10.",
   },
   {
@@ -127,10 +124,7 @@ const DOWNLOADS: { system: string; files: string[]; note: string }[] = [
   },
   {
     system: "Linux",
-    files: [
-      "Inklo-<version>-linux-x86_64.AppImage",
-      "Inklo-<version>-linux-amd64.deb",
-    ],
+    files: ["Inklo-<version>-linux-x86_64.AppImage", "Inklo-<version>-linux-amd64.deb"],
     note: "x86_64 only. Run chmod +x on the AppImage first. Inklo needs WebKitGTK 4.1, which the .deb pulls in. These builds are new in 0.2.0 and have not been tried on real machines beyond CI.",
   },
 ];

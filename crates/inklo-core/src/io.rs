@@ -79,12 +79,11 @@ fn utf8(bytes: &[u8], encoding: Encoding) -> (String, Option<Encoding>) {
 }
 
 fn utf16(bytes: &[u8], unit: fn([u8; 2]) -> u16, encoding: Encoding) -> (String, Option<Encoding>) {
-    let units: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|pair| unit([pair[0], pair[1]]))
-        .collect();
+    // An odd trailing byte lands in `rest`: then the file is not UTF-16.
+    let (pairs, rest) = bytes.as_chunks::<2>();
+    let units: Vec<u16> = pairs.iter().map(|&pair| unit(pair)).collect();
     match String::from_utf16(&units) {
-        Ok(text) if bytes.len().is_multiple_of(2) => (text, Some(encoding)),
+        Ok(text) if rest.is_empty() => (text, Some(encoding)),
         _ => (String::from_utf16_lossy(&units), None),
     }
 }

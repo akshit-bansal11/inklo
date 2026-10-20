@@ -54,4 +54,5 @@ export const CHECKSUM_COMMANDS = `Get-FileHash <file> -Algorithm SHA256         
 shasum -a 256 -c SHA256SUMS.txt --ignore-missing # macOS
 sha256sum -c --ignore-missing SHA256SUMS.txt     # Linux`;
 
-export const ATTEST_COMMAND = "gh attestation verify <file> --repo akshit-bansal11/inklo";
+export const ATTEST_COMMAND =
+  "gh attestation verify <file> --repo akshit-bansal11/inklo";

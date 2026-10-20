@@ -12,8 +12,8 @@ export function SiteFooter() {
         <div>
           <p className="text-lg font-black">Inklo</p>
           <p className="text-dim mt-1">
-            MIT licensed. Inklo makes no network requests, and this site loads
-            nothing from anywhere else.
+            MIT licensed. Inklo makes no network requests, and this site loads nothing
+            from anywhere else.
           </p>
         </div>
         <div className="flex flex-wrap gap-x-5">
