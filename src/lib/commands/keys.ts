@@ -45,7 +45,8 @@ function keyName(code: string): string | undefined {
 }
 
 type KeyEventLike = Pick<KeyboardEvent, "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey"> & {
-  getModifierState?: (key: string) => boolean;
+  // Narrow on purpose: React types this as a union of modifier names, which (key: string) would reject.
+  getModifierState?: (key: "AltGraph") => boolean;
 };
 
 /** Null for a bare modifier press or a key this app does not bind. */
