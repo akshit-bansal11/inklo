@@ -30,7 +30,7 @@
     "@tauri-apps/api": "2.12.1",
     "cmdk": "1.1.1",
     "codemirror": "6.0.2",
-    "dompurify": "3.4.16",
+    "dompurify": "3.4.17",
     "lucide-react": "1.51.0",
     "marked": "18.0.14",
     "react": "19.3.0",
